@@ -1,17 +1,41 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: signalscope
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-signalscope}
+      POSTGRES_DB: signalscope
+    volumes:
+      - pgdata:/var/lib/postgresql/data # accounts & history survive restarts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U signalscope -d signalscope"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   backend:
     build: ./app/backend
     environment:
       ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://signalscope:${POSTGRES_PASSWORD:-signalscope}@db:5432/signalscope
+      # Demo-only default so `docker compose up` works out of the box. Set your own for any real deployment.
+      SECRET_KEY: ${SECRET_KEY:-local-demo-secret-change-me-before-deploying-0123456789}
+      # Cookies are sent over plain HTTP on localhost. Set to true when serving over HTTPS.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SEED_DEMO_USERS: ${SEED_DEMO_USERS:-true}
       DETECTOR: ${DETECTOR:-mock}
       CORS_ORIGINS: '["http://localhost:8080"]'
     ports:
       - "8000:8000" # API + interactive docs at http://localhost:8000/docs
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
       interval: 10s
       timeout: 3s
       retries: 5
+      start_period: 20s
 
   frontend:
     build: ./app/frontend
@@ -20,3 +44,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+volumes:
+  pgdata:

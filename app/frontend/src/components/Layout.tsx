@@ -1,39 +1,72 @@
-import { NavLink, Outlet } from 'react-router'
+import { Link, NavLink, Outlet, useLocation } from 'react-router'
+import { useAuth } from '../hooks/useAuth.ts'
+import { LogoMark } from './brand/Logo.tsx'
+import { buttonClass } from './ui/buttonClass.ts'
 import { HealthBadge } from './HealthBadge.tsx'
+import { UserMenu } from './UserMenu.tsx'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
-  `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-    isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:text-slate-900'
-  }`
+  `rounded-md px-3 py-1.5 text-sm transition-colors ${isActive ? 'bg-raise text-text' : 'text-mute hover:text-text'}`
+
+function AuthControls() {
+  const { status, user } = useAuth()
+  const location = useLocation()
+
+  if (status === 'loading') return <span className="h-9 w-20" aria-hidden />
+  if (status === 'authenticated' && user) return <UserMenu user={user} />
+
+  const onAuthPage = location.pathname === '/login' || location.pathname === '/signup'
+  const next = onAuthPage ? '' : `?next=${encodeURIComponent(location.pathname)}`
+  return (
+    <div className="flex items-center gap-2">
+      <Link to={`/login${next}`} className={buttonClass('quiet', 'px-3 py-2')}>
+        Sign in
+      </Link>
+      <Link to={`/signup${next}`} className={buttonClass('ghost', 'px-3 py-2')}>
+        Create account
+      </Link>
+    </div>
+  )
+}
 
 export function Layout() {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <NavLink to="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <img src="/favicon.svg" alt="" className="size-7" />
-            SignalScope
-          </NavLink>
-          <nav className="flex items-center gap-1" aria-label="Main">
-            <NavLink to="/" end className={navClass}>
-              Analyze
+      <header className="sticky top-0 z-30 border-b border-line bg-ink">
+        <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
+          <div className="flex items-center gap-8">
+            <NavLink to="/" className="flex items-center gap-2.5 text-[17px] font-semibold tracking-tight">
+              <LogoMark />
+              SignalScope
             </NavLink>
-          </nav>
-          <HealthBadge />
+            <nav className="hidden items-center gap-1 sm:flex" aria-label="Main">
+              <NavLink to="/" end className={navClass}>
+                Analyze
+              </NavLink>
+            </nav>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="hidden md:inline-flex">
+              <HealthBadge />
+            </span>
+            <AuthControls />
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
+      <main className="mx-auto w-full max-w-[1180px] flex-1 px-4 pt-10 pb-20 sm:px-5">
         <Outlet />
       </main>
 
-      <footer className="border-t border-slate-200 bg-white">
-        <p className="mx-auto max-w-6xl px-4 py-4 text-xs text-slate-500">
-          SignalScope gives a <strong>likelihood assessment</strong>, not a definitive judgement. Results can be
-          wrong — especially for heavily edited or compressed images. Never use them as the sole basis for an
-          accusation.
-        </p>
+      <footer className="border-t border-line">
+        <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-3 px-4 py-5 sm:px-5">
+          <p className="max-w-2xl text-xs text-faint">
+            SignalScope gives a <span className="text-mute">likelihood assessment</span>, not a definitive judgement.
+            Results can be wrong — especially for heavily edited or compressed images. Never use them as the sole basis
+            for an accusation.
+          </p>
+          <span className="label">SIH 2026 · PS-2</span>
+        </div>
       </footer>
     </div>
   )

@@ -10,3 +10,5 @@ class HealthResponse(BaseModel):
     detector: str
     detector_ready: bool
     model_version: str
+    database: Literal["ok", "unavailable"]
+    demo_accounts: bool

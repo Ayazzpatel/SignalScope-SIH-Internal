@@ -5,23 +5,20 @@ export function HealthBadge() {
 
   const { dot, label } =
     health.kind === 'loading'
-      ? { dot: 'bg-slate-300', label: 'Connecting…' }
+      ? { dot: 'bg-faint', label: 'Connecting' }
       : health.kind === 'offline'
-        ? { dot: 'bg-red-500', label: 'API offline' }
+        ? { dot: 'bg-ai shadow-[0_0_10px_var(--color-ai)]', label: 'API offline' }
         : health.data.status === 'ok'
-          ? {
-              dot: health.data.detector === 'mock' ? 'bg-amber-400' : 'bg-emerald-500',
-              label: health.data.detector === 'mock' ? 'Demo model' : `Model ${health.data.model_version}`,
-            }
-          : { dot: 'bg-amber-500', label: 'Model loading' }
+          ? { dot: 'bg-signal shadow-[0_0_10px_var(--color-signal)]', label: `Model ${health.data.model_version} · online` }
+          : { dot: 'bg-unsure', label: 'Degraded' }
 
   return (
     <span
-      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600"
       role="status"
-      title={health.kind === 'online' ? `API v${health.data.version} · ${health.data.model_version}` : undefined}
+      className="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1.5 font-mono text-[11px] tracking-[0.06em] text-mute uppercase"
+      title={health.kind === 'online' ? `API v${health.data.version} · database ${health.data.database}` : undefined}
     >
-      <span className={`size-2 rounded-full ${dot}`} aria-hidden />
+      <span className={`size-1.5 rounded-full ${dot}`} aria-hidden />
       {label}
     </span>
   )
