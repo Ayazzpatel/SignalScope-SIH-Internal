@@ -1,0 +1,3 @@
+# Application (backend) dependencies.
+# The ML team appends model dependencies (torch, open_clip, ...) below or in model/requirements.txt.
+-r app/backend/requirements.txt

@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data
+data/
+*.db
+*.sqlite3
+uploads/
+
+# Model artefacts (share large weights via release/link)
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
