@@ -1,4 +1,4 @@
-# SignalScope — Telling Real From Synthetic
+# SignalScope — Telling Real From Synthetic.
 
 SIH 2026 Internal Hackathon · Problem Statement 2
 
