@@ -30,6 +30,7 @@ function AuthControls() {
 }
 
 export function Layout() {
+  const { status } = useAuth()
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-ink">
@@ -43,6 +44,11 @@ export function Layout() {
               <NavLink to="/" end className={navClass}>
                 Analyze
               </NavLink>
+              {status === 'authenticated' && (
+                <NavLink to="/history" className={navClass}>
+                  History
+                </NavLink>
+              )}
             </nav>
           </div>
           <div className="flex items-center gap-3">

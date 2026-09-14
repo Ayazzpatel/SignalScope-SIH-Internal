@@ -6,8 +6,8 @@ SignalScope gives a **likelihood assessment** of whether an image is real or AI-
 the regions behind the verdict and any provenance metadata the image carries. It never makes accusations —
 results are presented as *likely real*, *uncertain* or *likely AI-generated*.
 
-> 🚧 Work in progress. Status: **Phase 2 — accounts** (guest analysis + sign-up / sign-in, sessions, roles).
-> The detector is currently a deterministic mock until the ML model is plugged in.
+> 🚧 Work in progress. Status: **Phase 3 — history & privacy** (guest analysis, accounts, private scan history,
+> privacy controls). The detector is currently a deterministic mock until the ML model is plugged in.
 
 ## Quick start
 
@@ -86,7 +86,8 @@ alembic upgrade head
 ```
 Browser (React) ──► nginx ──► FastAPI /api/v1 ──► Detector interface ── MockDetector | MLDetector (model/predict.py)
                                     │
-                                    └──► PostgreSQL (users, sessions)   ← SQLAlchemy 2 async + Alembic
+                                    ├──► PostgreSQL (users, sessions, scans)   ← SQLAlchemy 2 async + Alembic
+                                    └──► File storage (heat-maps, opted-in images) on a Docker volume
 ```
 
 ### API
@@ -101,6 +102,10 @@ Browser (React) ──► nginx ──► FastAPI /api/v1 ──► Detector int
 | `GET` / `PATCH /api/v1/auth/me` | Profile |
 | `POST /api/v1/auth/change-password` | Change password (signs out other devices) |
 | `GET /api/v1/auth/sessions` · `DELETE /api/v1/auth/sessions/{id}` | List / revoke signed-in devices |
+| `GET /api/v1/scans` · `/scans/stats` | Your history (cursor pagination; filter by verdict, filename, date) and totals |
+| `GET` / `DELETE /api/v1/scans/{id}` · `/scans/{id}/image` · `/heatmap` | One saved scan and its owner-only files |
+| `POST /api/v1/scans/bulk-delete` · `DELETE /api/v1/scans` | Delete several / all scans |
+| `PATCH /api/v1/account/preferences` · `GET /account/export` · `POST /account/delete` | Privacy settings, data export, account deletion |
 
 ```bash
 curl -F "file=@photo.jpg" http://localhost:8000/api/v1/analyze
@@ -138,6 +143,20 @@ the real model is plugged in by setting `DETECTOR=ml`.
 
 Known limitations: no email verification or password reset yet (needs an SMTP service); rate limiting is
 in-memory (single instance — use Redis when scaling out).
+
+### History & privacy
+
+| Concern | Approach |
+|---|---|
+| Guests | Nothing stored — not the image, not the result, not a hash |
+| Signed-in scans | Result (verdict, cues, provenance, heat-map) saved; the **image only on opt-in** (off by default) |
+| Stored images | Re-encoded to WebP ≤ 1024 px, which drops all metadata including GPS; served only to the owner |
+| Seen before | SHA-256 (exact) + 64-bit perceptual hash (survives resize/re-compression, Hamming ≤ 8) |
+| Other users | Only an anonymous count, and only when ≥ 2 other people scanned it |
+| Result cache | Identical file + same model version reuses the stored result (no re-inference) |
+| Retention | Per user: 7 / 30 / 90 (default) / 365 days or forever; hourly clean-up job |
+| Your rights | Export everything as JSON; delete one, many or all scans; delete the account (password-confirmed) |
+| Access control | Other users' scans return 404 (existence is never confirmed) |
 
 ## Repository layout
 

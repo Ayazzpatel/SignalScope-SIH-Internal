@@ -15,7 +15,7 @@ _STOPS = np.array([0.0, 0.5, 1.0], dtype=np.float32)
 _COLOURS = np.array([[253, 224, 71], [249, 115, 22], [220, 38, 38]], dtype=np.float32)
 
 
-def render_heatmap_png(heatmap: np.ndarray, width: int, height: int, max_side: int) -> str:
+def render_heatmap_png(heatmap: np.ndarray, width: int, height: int, max_side: int) -> bytes:
     scale = min(1.0, max_side / max(width, height))
     out_w, out_h = max(1, round(width * scale)), max(1, round(height * scale))
 
@@ -30,4 +30,8 @@ def render_heatmap_png(heatmap: np.ndarray, width: int, height: int, max_side: i
 
     buffer = io.BytesIO()
     Image.fromarray(rgba).save(buffer, format="PNG", optimize=True)
-    return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+    return buffer.getvalue()
+
+
+def png_data_url(png: bytes) -> str:
+    return "data:image/png;base64," + base64.b64encode(png).decode("ascii")

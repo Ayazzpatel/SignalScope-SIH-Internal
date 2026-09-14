@@ -56,6 +56,8 @@ def _test_settings(monkeypatch, tmp_path) -> Iterator[None]:
         "ARGON2_TIME_COST": "1",
         "ARGON2_MEMORY_KIB": "1024",
         "COOKIE_SECURE": "false",
+        "STORAGE_DIR": str(tmp_path / "files"),
+        "RETENTION_ENABLED": "false",
     }
     for key, value in env.items():
         monkeypatch.setenv(key, value)

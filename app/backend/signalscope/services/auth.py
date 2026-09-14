@@ -130,6 +130,9 @@ class AuthService:
         await db.commit()
         return user, tokens
 
+    async def verify_password(self, user: User, password: str) -> bool:
+        return await run_in_threadpool(self._passwords.verify, user.password_hash, password)
+
     async def update_profile(self, db: AsyncSession, user: User, *, display_name: str) -> User:
         user.display_name = display_name
         await db.commit()

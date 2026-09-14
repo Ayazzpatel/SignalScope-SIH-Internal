@@ -1,7 +1,14 @@
+import { Lock } from 'lucide-react'
+import { useState } from 'react'
+import { Link } from 'react-router'
 import { AnalyzingState } from '../components/analysis/AnalyzingState.tsx'
 import { Dropzone } from '../components/analysis/Dropzone.tsx'
+import { ResultNotices } from '../components/analysis/ResultNotices.tsx'
 import { ResultView } from '../components/analysis/ResultView.tsx'
+import { Button } from '../components/ui/Button.tsx'
+import { Switch } from '../components/ui/Switch.tsx'
 import { useAnalysis } from '../hooks/useAnalysis.ts'
+import { useAuth } from '../hooks/useAuth.ts'
 
 const CHECKS = [
   {
@@ -23,14 +30,26 @@ const CHECKS = [
 
 export function HomePage() {
   const { state, analyze, reset } = useAnalysis()
+  const { user } = useAuth()
+  const [saveChoice, setSaveChoice] = useState<boolean | null>(null)
+  const saveImage = saveChoice ?? user?.save_images_default ?? false
 
   if (state.kind === 'done') {
+    const { scan } = state.result
     return (
       <ResultView
         result={state.result}
-        previewUrl={state.previewUrl}
+        resultKey={state.result.request_id}
+        imageUrl={state.previewUrl}
         fileName={state.file.name || 'Pasted image'}
-        onReset={() => reset()}
+        eyebrow="Analysis result"
+        actions={
+          <Button variant="ghost" onClick={() => reset()}>
+            Scan another image
+          </Button>
+        }
+        notices={<ResultNotices result={state.result} signedIn={Boolean(user)} />}
+        storedLabel={scan ? (scan.image_saved ? 'result + image' : 'result only') : 'no (guest)'}
       />
     )
   }
@@ -45,6 +64,28 @@ export function HomePage() {
       />
     )
   }
+
+  const footer = user ? (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <Switch on={saveImage} onChange={setSaveChoice}>
+        Keep the image in my history
+      </Switch>
+      <span className="text-[12.5px] text-faint">
+        The result is always saved.{' '}
+        <Link to="/account#privacy" className="text-mute underline underline-offset-4 hover:text-text">
+          Privacy settings
+        </Link>
+      </span>
+    </div>
+  ) : (
+    <p className="flex flex-wrap items-center gap-2 text-[12.5px] text-faint">
+      <Lock className="size-3.5" aria-hidden />
+      Analysed in memory. Guests' images are never stored.
+      <Link to="/signup" className="text-mute underline underline-offset-4 hover:text-text">
+        Keep a private history
+      </Link>
+    </p>
+  )
 
   return (
     <div>
@@ -79,7 +120,7 @@ export function HomePage() {
           </dl>
         </div>
         <div className="animate-rise [animation-delay:120ms]">
-          <Dropzone onFile={analyze} error={state.error} />
+          <Dropzone onFile={(file) => analyze(file, user ? saveImage : undefined)} error={state.error} footer={footer} />
         </div>
       </section>
 

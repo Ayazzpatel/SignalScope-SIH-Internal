@@ -12,6 +12,8 @@ from signalscope.models import UserRole
 from signalscope.services.analysis import AnalysisService
 from signalscope.services.auth import AuthContext, AuthService, ClientInfo
 from signalscope.services.detector import Detector
+from signalscope.services.scans import ScanService
+from signalscope.services.storage import LocalStorage
 
 
 def get_detector(request: Request) -> Detector:
@@ -30,6 +32,14 @@ def get_rate_limiter(request: Request) -> RateLimiter:
     return request.app.state.rate_limiter
 
 
+def get_storage(request: Request) -> LocalStorage:
+    return request.app.state.storage
+
+
+def get_scan_service(request: Request) -> ScanService:
+    return request.app.state.scans
+
+
 async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
     async with request.app.state.sessionmaker() as session:
         yield session
@@ -44,6 +54,8 @@ DetectorDep = Annotated[Detector, Depends(get_detector)]
 AnalysisServiceDep = Annotated[AnalysisService, Depends(get_analysis_service)]
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
+StorageDep = Annotated[LocalStorage, Depends(get_storage)]
+ScanServiceDep = Annotated[ScanService, Depends(get_scan_service)]
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 ClientInfoDep = Annotated[ClientInfo, Depends(get_client_info)]
 

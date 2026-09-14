@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     max_concurrent_inference: int = 2
     heatmap_max_side: int = 1024
 
+    # History & privacy
+    storage_dir: Path = BACKEND_ROOT / "data" / "files"
+    stored_image_max_side: int = 1024
+    retention_enabled: bool = True
+    retention_interval_s: int = 3600
+    phash_max_distance: int = 8  # Hamming distance on 64-bit pHash for "near-identical"
+    seen_min_other_users: int = 2  # hide cross-user counts below this (anonymity)
+
     # Database — Postgres in Docker; SQLite fallback for quick local runs without Docker
     database_url: str = f"sqlite+aiosqlite:///{(BACKEND_ROOT / 'data' / 'signalscope.db').as_posix()}"
     auto_migrate: bool = True

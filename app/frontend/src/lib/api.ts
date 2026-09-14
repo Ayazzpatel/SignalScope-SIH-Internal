@@ -1,7 +1,16 @@
-import type { AnalysisResponse, ApiErrorBody, HealthResponse } from '../types/api.ts'
+import type {
+  AnalysisResponse,
+  ApiErrorBody,
+  HealthResponse,
+  ScanDetail,
+  ScanListResponse,
+  ScanQuery,
+  ScanStats,
+} from '../types/api.ts'
 import type {
   AuthResponse,
   MessageResponse,
+  RetentionDays,
   SessionInfo,
   SessionStateResponse,
   User,
@@ -86,10 +95,34 @@ function json(method: string, body?: unknown): RequestInit {
 export const api = {
   health: (signal?: AbortSignal) => request<HealthResponse>('/health', { signal }),
 
-  analyze: (file: File, signal?: AbortSignal) => {
+  analyze: (file: File, options: { saveImage?: boolean; signal?: AbortSignal } = {}) => {
     const form = new FormData()
     form.append('file', file)
-    return request<AnalysisResponse>('/analyze', { method: 'POST', body: form, signal })
+    if (options.saveImage !== undefined) form.append('save_image', String(options.saveImage))
+    return request<AnalysisResponse>('/analyze', { method: 'POST', body: form, signal: options.signal })
+  },
+
+  scans: {
+    list: (query: ScanQuery = {}, signal?: AbortSignal) => {
+      const params = new URLSearchParams()
+      for (const [key, value] of Object.entries(query)) {
+        if (value !== undefined && value !== '') params.set(key, String(value))
+      }
+      const qs = params.toString()
+      return request<ScanListResponse>(`/scans${qs ? `?${qs}` : ''}`, { signal })
+    },
+    stats: () => request<ScanStats>('/scans/stats'),
+    get: (id: string) => request<ScanDetail>(`/scans/${id}`),
+    remove: (id: string) => request<MessageResponse>(`/scans/${id}`, json('DELETE')),
+    removeMany: (ids: string[]) => request<{ deleted: number }>('/scans/bulk-delete', json('POST', { ids })),
+    removeAll: () => request<{ deleted: number }>('/scans', json('DELETE')),
+  },
+
+  account: {
+    updatePreferences: (body: { save_images_default?: boolean; retention_days?: RetentionDays | null }) =>
+      request<User>('/account/preferences', json('PATCH', body)),
+    exportData: () => request<unknown>('/account/export'),
+    deleteAccount: (password: string) => request<MessageResponse>('/account/delete', json('POST', { password })),
   },
 
   auth: {

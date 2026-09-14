@@ -85,17 +85,76 @@ export interface Provenance {
   agreement_note: string | null
 }
 
-export interface AnalysisResponse {
-  request_id: string
+/** Everything needed to render a result — shared by fresh analyses and saved scans. */
+export interface ResultData {
   detector: 'mock' | 'ml'
   model_version: string
   verdict: Verdict
+  /** heatmap_png is a data: URL for fresh analyses, an owner-only API URL for saved scans. */
   explanation: { heatmap_png: string | null; cues: Cue[] }
   attribution: Attribution | null
   provenance: Provenance
   image: { width: number; height: number; format: string; size_bytes: number; sha256: string }
   timings: { inference_ms: number; total_ms: number }
   disclaimer: string
+}
+
+export interface ScanRef {
+  id: string
+  image_saved: boolean
+}
+
+export interface SeenBefore {
+  yours: { scan_id: string; scanned_at: string; band: VerdictBand; exact: boolean } | null
+  others_count: number | null
+  consistent: boolean | null
+}
+
+export interface AnalysisResponse extends ResultData {
+  request_id: string
+  cached: boolean
+  scan: ScanRef | null
+  seen_before: SeenBefore | null
+}
+
+export interface ScanSummary {
+  id: string
+  created_at: string
+  filename: string | null
+  band: VerdictBand
+  prob_ai: number
+  headline: string
+  image_url: string | null
+  width: number
+  height: number
+  format: string
+  model_version: string
+}
+
+export interface ScanListResponse {
+  items: ScanSummary[]
+  next_cursor: string | null
+}
+
+export interface ScanStats {
+  total: number
+  by_band: Record<VerdictBand, number>
+  this_week: number
+}
+
+export interface ScanDetail extends ResultData {
+  id: string
+  created_at: string
+  filename: string | null
+  image_url: string | null
+}
+
+export interface ScanQuery {
+  band?: VerdictBand
+  q?: string
+  sort?: 'newest' | 'oldest'
+  cursor?: string
+  limit?: number
 }
 
 export interface ApiErrorBody {

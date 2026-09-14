@@ -1,5 +1,5 @@
 import { Lock, TriangleAlert } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type DragEvent } from 'react'
+import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { ACCEPTED_TYPES, MAX_UPLOAD_MB, validateFile } from '../../lib/presentation.ts'
 import { SignalWave } from '../brand/SignalWave.tsx'
 import { Viewfinder } from '../ui/Viewfinder.tsx'
@@ -7,6 +7,8 @@ import { Viewfinder } from '../ui/Viewfinder.tsx'
 interface DropzoneProps {
   onFile: (file: File) => void
   error?: string | null
+  /** Replaces the default privacy line under the drop area (e.g. the "save image" control). */
+  footer?: ReactNode
 }
 
 function Reticle() {
@@ -19,7 +21,7 @@ function Reticle() {
   )
 }
 
-export function Dropzone({ onFile, error }: DropzoneProps) {
+export function Dropzone({ onFile, error, footer }: DropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [hovering, setHovering] = useState(false)
@@ -102,17 +104,20 @@ export function Dropzone({ onFile, error }: DropzoneProps) {
           />
         </div>
 
-        {shownError ? (
+        {shownError && (
           <p role="alert" className="mt-4 flex items-center gap-2 text-sm text-ai">
             <TriangleAlert className="size-4 shrink-0" aria-hidden />
             {shownError}
           </p>
-        ) : (
-          <p className="mt-4 flex items-center gap-2 text-[12.5px] text-faint">
-            <Lock className="size-3.5" aria-hidden />
-            Analysed in memory. Guests' images are never stored.
-          </p>
         )}
+        <div className="mt-4">
+          {footer ?? (
+            <p className="flex items-center gap-2 text-[12.5px] text-faint">
+              <Lock className="size-3.5" aria-hidden />
+              Analysed in memory. Guests' images are never stored.
+            </p>
+          )}
+        </div>
       </Viewfinder>
       <SignalWave excited={hovering || dragging} className="mt-2 h-20 w-full" />
     </div>

@@ -1,15 +1,17 @@
-import { KeyRound, LogOut, Monitor, ShieldCheck, UserRound } from 'lucide-react'
+import { Database, Download, KeyRound, LogOut, Monitor, ShieldCheck, Trash2, TriangleAlert, UserRound } from 'lucide-react'
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { PasswordStrength } from '../components/auth/PasswordStrength.tsx'
 import { Alert } from '../components/ui/Alert.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { PasswordField, TextField } from '../components/ui/Field.tsx'
+import { Switch } from '../components/ui/Switch.tsx'
 import { useAuth } from '../hooks/useAuth.ts'
 import { api } from '../lib/api.ts'
 import { NO_ERRORS, toFormErrors, withoutFieldError, type FormErrors } from '../lib/forms.ts'
 import { formatDate, timeAgo } from '../lib/navigation.ts'
-import type { SessionInfo, User } from '../types/auth.ts'
+import { RETENTION_OPTIONS } from '../lib/presentation.ts'
+import type { RetentionDays, SessionInfo, User } from '../types/auth.ts'
 
 export function AccountPage() {
   const { user } = useAuth()
@@ -25,20 +27,24 @@ export function AccountPage() {
         <p className="mt-3 text-mute">Manage your profile, password and signed-in devices.</p>
       </header>
       <ProfileSection user={user} />
+      <PrivacySection user={user} />
       <PasswordSection email={user.email} />
       <SessionsSection />
+      <DangerZone />
     </div>
   )
 }
 
-function Section({ icon, title, description, children }: {
+function Section({ icon, title, description, children, id, danger = false }: {
   icon: ReactNode
   title: string
   description: string
   children: ReactNode
+  id?: string
+  danger?: boolean
 }) {
   return (
-    <section className="panel p-5 sm:p-6">
+    <section id={id} className={`panel scroll-mt-24 p-5 sm:p-6 ${danger ? 'border-ai/30' : ''}`}>
       <h2 className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
         {icon}
         {title}
@@ -101,6 +107,200 @@ function ProfileSection({ user }: { user: User }) {
           </Button>
         </div>
       </form>
+    </Section>
+  )
+}
+
+// ------------------------------------------------------------------ privacy
+
+function SettingRow({ title, description, children }: { title: string; description: ReactNode; children: ReactNode }) {
+  return (
+    <div className="grid gap-3 border-b border-line py-4 first:pt-0 last:border-b-0 last:pb-0 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-8">
+      <div>
+        <p className="text-sm font-medium">{title}</p>
+        <p className="mt-0.5 text-[13px] text-mute">{description}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 sm:justify-end">{children}</div>
+    </div>
+  )
+}
+
+function PrivacySection({ user }: { user: User }) {
+  const { setUser } = useAuth()
+  const [busy, setBusy] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+  const [confirmClear, setConfirmClear] = useState(false)
+
+  const run = async (key: string, action: () => Promise<string | null>) => {
+    setBusy(key)
+    setMessage(null)
+    try {
+      const done = await action()
+      if (done) setMessage({ tone: 'success', text: done })
+    } catch (err) {
+      setMessage({ tone: 'error', text: toFormErrors(err, []).form ?? 'Something went wrong.' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const savePreference = (key: string, body: Parameters<typeof api.account.updatePreferences>[0]) =>
+    run(key, async () => {
+      setUser(await api.account.updatePreferences(body))
+      return null
+    })
+
+  const exportData = () =>
+    run('export', async () => {
+      const data = await api.account.exportData()
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `signalscope-export-${new Date().toISOString().slice(0, 10)}.json`
+      link.click()
+      URL.revokeObjectURL(url)
+      return 'Export downloaded.'
+    })
+
+  const clearHistory = () =>
+    run('clear', async () => {
+      const { deleted } = await api.scans.removeAll()
+      setConfirmClear(false)
+      return `Deleted ${deleted} scan${deleted === 1 ? '' : 's'} and their files.`
+    })
+
+  return (
+    <Section
+      id="privacy"
+      icon={<Database className="size-5 text-signal" aria-hidden />}
+      title="Privacy & data"
+      description="Guests leave no trace. Signed-in scans save the result; images only if you choose."
+    >
+      {message && (
+        <div className="mb-4">
+          <Alert tone={message.tone}>{message.text}</Alert>
+        </div>
+      )}
+      <SettingRow
+        title="Keep images by default"
+        description="When off, only the verdict, heat-map and metadata are saved. You can still choose per scan."
+      >
+        <Switch
+          on={user.save_images_default}
+          disabled={busy === 'images'}
+          onChange={(next) => void savePreference('images', { save_images_default: next })}
+        >
+          {user.save_images_default ? 'On' : 'Off'}
+        </Switch>
+      </SettingRow>
+      <SettingRow title="Keep scans for" description="Older scans and their files are deleted automatically.">
+        <label className="sr-only" htmlFor="retention">
+          Keep scans for
+        </label>
+        <select
+          id="retention"
+          value={user.retention_days ?? 'forever'}
+          disabled={busy === 'retention'}
+          onChange={(e) =>
+            void savePreference('retention', {
+              retention_days: e.target.value === 'forever' ? null : (Number(e.target.value) as RetentionDays),
+            })
+          }
+          className="rounded-md border border-line-strong bg-ink px-2.5 py-2 text-sm focus:border-signal focus:outline-none"
+        >
+          {RETENTION_OPTIONS.map((option) => (
+            <option key={option.label} value={option.value ?? 'forever'}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </SettingRow>
+      <SettingRow title="Export my data" description="Account, sessions and every saved result, as a JSON file.">
+        <Button variant="ghost" loading={busy === 'export'} onClick={() => void exportData()}>
+          <Download className="size-4" aria-hidden />
+          Download export
+        </Button>
+      </SettingRow>
+      <SettingRow title="Delete scan history" description="Removes every saved scan, heat-map and image. Your account stays.">
+        {confirmClear ? (
+          <>
+            <Button variant="quiet" onClick={() => setConfirmClear(false)} disabled={busy === 'clear'}>
+              Cancel
+            </Button>
+            <Button variant="danger" loading={busy === 'clear'} onClick={() => void clearHistory()}>
+              Yes, delete all
+            </Button>
+          </>
+        ) : (
+          <Button variant="ghost" onClick={() => setConfirmClear(true)}>
+            <Trash2 className="size-4" aria-hidden />
+            Delete history
+          </Button>
+        )}
+      </SettingRow>
+    </Section>
+  )
+}
+
+// ------------------------------------------------------------------ danger zone
+
+function DangerZone() {
+  const { logout } = useAuth()
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const onSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      await api.account.deleteAccount(password)
+      await logout()
+      navigate('/', { replace: true })
+    } catch (err) {
+      const errors = toFormErrors(err, ['password'])
+      setError(errors.fields.password ?? errors.form)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Section
+      danger
+      icon={<TriangleAlert className="size-5 text-ai" aria-hidden />}
+      title="Delete account"
+      description="Permanently deletes your account, sessions, scans and files. This cannot be undone."
+    >
+      {open ? (
+        <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+          <PasswordField
+            label="Confirm with your password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value)
+              setError(null)
+            }}
+            error={error}
+          />
+          <div className="flex gap-2">
+            <Button type="button" variant="quiet" onClick={() => setOpen(false)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="danger" loading={busy} disabled={!password}>
+              Delete forever
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <Button variant="danger" onClick={() => setOpen(true)}>
+          Delete my account
+        </Button>
+      )}
     </Section>
   )
 }

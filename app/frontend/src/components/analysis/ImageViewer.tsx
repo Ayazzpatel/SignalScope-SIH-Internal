@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import { CUE_STYLES } from '../../lib/presentation.ts'
 import type { Cue } from '../../types/api.ts'
+import { Switch } from '../ui/Switch.tsx'
 import { Viewfinder } from '../ui/Viewfinder.tsx'
 
 interface ImageViewerProps {
-  src: string
+  /** Image to display; null when only the result was kept (a blank specimen is drawn instead). */
+  src: string | null
   alt: string
+  width: number
+  height: number
   heatmap: string | null
   cues: Cue[]
   tags: string[]
@@ -13,41 +17,36 @@ interface ImageViewerProps {
   onActiveCueChange: (index: number | null) => void
 }
 
-function Switch({ on, onClick, children }: { on: boolean; onClick: () => void; children: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={on}
-      className={`inline-flex items-center gap-2 text-[13px] transition-colors ${on ? 'text-text' : 'text-mute hover:text-text'}`}
-    >
-      <span
-        className={`relative h-3.5 w-6.5 rounded-full border transition-colors ${on ? 'border-signal bg-signal-dim' : 'border-line-strong'}`}
-        aria-hidden
-      >
-        <span
-          className={`absolute top-0.5 left-0.5 size-2 rounded-full transition-transform ${on ? 'translate-x-3 bg-signal' : 'bg-mute'}`}
-        />
-      </span>
-      {children}
-    </button>
-  )
-}
-
 const coord = (value: number) => value.toFixed(2).replace(/^0/, '')
 
-export function ImageViewer({ src, alt, heatmap, cues, tags, activeCue, onActiveCueChange }: ImageViewerProps) {
+export function ImageViewer({ src, alt, width, height, heatmap, cues, tags, activeCue, onActiveCueChange }: ImageViewerProps) {
   const [showHeatmap, setShowHeatmap] = useState(true)
   const [showRegions, setShowRegions] = useState(true)
   const [opacity, setOpacity] = useState(0.75)
   const regionCues = cues.map((cue, index) => ({ cue, index })).filter(({ cue }) => cue.region)
 
   return (
-    <Viewfinder labels={['Specimen · heat-map overlay', `Regions · ${regionCues.length}`]} className="h-full">
+    <Viewfinder
+      labels={[src ? 'Specimen · heat-map overlay' : 'Specimen · image not kept', `Regions · ${regionCues.length}`]}
+      className="h-full"
+    >
       <div className="flex justify-center rounded-sm bg-black">
-        {/* Wrapper shrinks to the rendered image so overlays line up exactly. */}
-        <div className="relative inline-block">
-          <img src={src} alt={alt} className="block max-h-[34rem] w-auto max-w-full" />
+        {/* Wrapper matches the rendered image box so overlays line up exactly. */}
+        <div
+          className="relative inline-block"
+          style={src ? undefined : { aspectRatio: `${width} / ${height}`, width: `min(100%, calc(34rem * ${width} / ${height}))` }}
+        >
+          {src ? (
+            <img src={src} alt={alt} className="block max-h-[34rem] w-auto max-w-full" />
+          ) : (
+            <div className="scope-grid absolute inset-0 grid place-items-center p-4 text-center">
+              <span className="label leading-relaxed">
+                Result only — the image wasn't kept
+                <br />
+                {width} × {height}
+              </span>
+            </div>
+          )}
 
           {heatmap && showHeatmap && (
             <img
@@ -89,7 +88,7 @@ export function ImageViewer({ src, alt, heatmap, cues, tags, activeCue, onActive
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3">
         {heatmap && (
           <>
-            <Switch on={showHeatmap} onClick={() => setShowHeatmap((v) => !v)}>
+            <Switch on={showHeatmap} onChange={setShowHeatmap}>
               Heat-map
             </Switch>
             <label className="flex items-center gap-2">
@@ -108,7 +107,7 @@ export function ImageViewer({ src, alt, heatmap, cues, tags, activeCue, onActive
           </>
         )}
         {regionCues.length > 0 && (
-          <Switch on={showRegions} onClick={() => setShowRegions((v) => !v)}>
+          <Switch on={showRegions} onChange={setShowRegions}>
             Regions
           </Switch>
         )}

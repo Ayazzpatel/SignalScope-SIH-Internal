@@ -1,3 +1,5 @@
+import uuid
+from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
@@ -95,6 +97,41 @@ class Timings(BaseModel):
     total_ms: float
 
 
+class StoredResult(BaseModel):
+    """The part of an analysis kept in a user's history (heat-map lives in file storage)."""
+
+    detector: Literal["mock", "ml"]
+    model_version: str
+    verdict: Verdict
+    cues: list[Cue]
+    attribution: Attribution | None
+    provenance: Provenance
+    image: ImageInfo
+    timings: Timings
+
+
+class OwnMatch(BaseModel):
+    scan_id: uuid.UUID
+    scanned_at: datetime
+    band: VerdictBand
+    exact: bool = Field(description="Byte-identical file (True) or visually near-identical (False).")
+
+
+class SeenBefore(BaseModel):
+    yours: OwnMatch | None = None
+    others_count: int | None = Field(
+        None, description="Distinct other users with a similar image; only shown when >= 2 (anonymity)."
+    )
+    consistent: bool | None = Field(
+        None, description="Whether earlier matching verdicts agree with this one."
+    )
+
+
+class ScanRef(BaseModel):
+    id: uuid.UUID
+    image_saved: bool
+
+
 class AnalysisResponse(BaseModel):
     request_id: str
     detector: Literal["mock", "ml"]
@@ -106,3 +143,6 @@ class AnalysisResponse(BaseModel):
     image: ImageInfo
     timings: Timings
     disclaimer: str
+    cached: bool = Field(False, description="True when an identical earlier scan's result was reused.")
+    scan: ScanRef | None = Field(None, description="Set when the result was saved to the user's history.")
+    seen_before: SeenBefore | None = None

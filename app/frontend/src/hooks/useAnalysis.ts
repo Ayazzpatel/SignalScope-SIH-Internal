@@ -23,7 +23,8 @@ export function useAnalysis() {
     setState({ kind: 'idle', error })
   }, [])
 
-  const analyze = useCallback(async (file: File) => {
+  /** `saveImage` only matters for signed-in users; guests are never stored. */
+  const analyze = useCallback(async (file: File, saveImage?: boolean) => {
     controllerRef.current?.abort()
     releasePreview()
     const controller = new AbortController()
@@ -33,7 +34,7 @@ export function useAnalysis() {
     setState({ kind: 'analyzing', file, previewUrl })
 
     try {
-      const result = await api.analyze(file, controller.signal)
+      const result = await api.analyze(file, { saveImage, signal: controller.signal })
       setState({ kind: 'done', file, previewUrl, result })
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return

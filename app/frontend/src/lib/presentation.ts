@@ -64,6 +64,20 @@ export const ATTRIBUTION_LABELS: Record<Attribution['family'], string> = {
   other: 'other generator',
 }
 
+export const BAND_SHORT: Record<VerdictBand, string> = {
+  likely_ai: 'Likely AI',
+  uncertain: 'Uncertain',
+  likely_real: 'Likely real',
+}
+
+export const RETENTION_OPTIONS: { value: number | null; label: string }[] = [
+  { value: 7, label: '7 days' },
+  { value: 30, label: '30 days' },
+  { value: 90, label: '90 days' },
+  { value: 365, label: '1 year' },
+  { value: null, label: 'Until I delete them' },
+]
+
 /** Instrument tags for cues: localised cues get R1, R2… in order; whole-image cues get ALL. */
 export function cueTags(cues: { region: unknown }[]): string[] {
   let n = 0

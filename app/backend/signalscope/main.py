@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -23,6 +25,9 @@ from signalscope.seed import seed_demo_users
 from signalscope.services.analysis import AnalysisService
 from signalscope.services.auth import AuthService
 from signalscope.services.detector import build_detector
+from signalscope.services.retention import retention_loop
+from signalscope.services.scans import ScanService
+from signalscope.services.storage import LocalStorage
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s - %(message)s")
 logger = logging.getLogger("signalscope")
@@ -55,9 +60,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.analysis = AnalysisService(detector, settings)
     logger.info("Detector '%s' ready (model %s)", detector.name, detector.model_version)
 
+    # History
+    storage = LocalStorage(settings.storage_dir)
+    app.state.storage = storage
+    app.state.scans = ScanService(settings, storage)
+    retention_task = (
+        asyncio.create_task(retention_loop(app.state.sessionmaker, storage, settings.retention_interval_s))
+        if settings.retention_enabled
+        else None
+    )
+
     try:
         yield
     finally:
+        if retention_task:
+            retention_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await retention_task
         await engine.dispose()
 
 

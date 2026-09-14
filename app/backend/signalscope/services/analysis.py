@@ -1,22 +1,47 @@
-"""Orchestrates one analysis: decode → [detector ‖ provenance] → verdict → heat-map → response."""
+"""Orchestrates one analysis: [detector (or cache) ‖ provenance] → verdict → heat-map."""
 
 import asyncio
 import logging
 import time
+from dataclasses import dataclass
 
 from fastapi.concurrency import run_in_threadpool
 from PIL import Image
 
 from signalscope.core.config import Settings
 from signalscope.core.errors import AppError
-from signalscope.schemas.analysis import AnalysisResponse, Explanation, ImageInfo, Timings
-from signalscope.services.detector import ContractError, Detection, Detector
+from signalscope.schemas.analysis import Provenance, Verdict
+from signalscope.services.detector import Attribution, ContractError, Cue, Detection, Detector
 from signalscope.services.heatmap import render_heatmap_png
-from signalscope.services.image_io import decode_image
+from signalscope.services.image_io import DecodedImage
 from signalscope.services.provenance import extract_provenance
-from signalscope.services.verdict import DISCLAIMER, assess_agreement, make_verdict
+from signalscope.services.verdict import assess_agreement, make_verdict
 
 logger = logging.getLogger("signalscope")
+
+
+@dataclass(frozen=True)
+class CachedDetection:
+    """A previous detector result for a byte-identical image under the same model version."""
+
+    prob_ai: float
+    model_version: str
+    cues: list[Cue]
+    attribution: Attribution | None
+    heatmap_png: bytes | None
+
+
+@dataclass(frozen=True)
+class AnalysisOutcome:
+    detector: str
+    model_version: str
+    verdict: Verdict
+    cues: list[Cue]
+    attribution: Attribution | None
+    provenance: Provenance
+    heatmap_png: bytes | None
+    inference_ms: float
+    cached: bool
 
 
 class AnalysisService:
@@ -26,51 +51,56 @@ class AnalysisService:
         # Caps concurrent model calls so a burst of uploads cannot exhaust CPU/GPU memory.
         self._inference_slots = asyncio.Semaphore(settings.max_concurrent_inference)
 
-    async def analyze(self, raw: bytes, request_id: str) -> AnalysisResponse:
+    @property
+    def model_version(self) -> str:
+        return self._detector.model_version
+
+    async def analyze(
+        self, image: DecodedImage, request_id: str, cached: CachedDetection | None = None
+    ) -> AnalysisOutcome:
         settings = self._settings
-        started = time.perf_counter()
-
-        image = await run_in_threadpool(decode_image, raw, settings.max_image_pixels)
-
         provenance_task = asyncio.ensure_future(
             run_in_threadpool(extract_provenance, image.raw, image.source, image.mime_type)
         )
         try:
-            detection, inference_ms = await self._detect(image.rgb, request_id)
+            if cached:
+                prob_ai, model_version = cached.prob_ai, cached.model_version
+                cues, attribution, heatmap_png, inference_ms = (
+                    cached.cues,
+                    cached.attribution,
+                    cached.heatmap_png,
+                    0.0,
+                )
+            else:
+                detection, inference_ms = await self._detect(image.rgb, request_id)
+                prob_ai, model_version = detection.prob_ai, detection.model_version
+                cues, attribution = detection.cues, detection.attribution
+                heatmap_png = None
+                if detection.heatmap is not None:
+                    heatmap_png = await run_in_threadpool(
+                        render_heatmap_png,
+                        detection.heatmap,
+                        image.width,
+                        image.height,
+                        settings.heatmap_max_side,
+                    )
         except BaseException:
             provenance_task.cancel()
             raise
         provenance = await provenance_task
 
-        verdict = make_verdict(detection.prob_ai, settings.band_likely_real_max, settings.band_likely_ai_min)
+        verdict = make_verdict(prob_ai, settings.band_likely_real_max, settings.band_likely_ai_min)
         assess_agreement(verdict, provenance)
-
-        heatmap_png = None
-        if detection.heatmap is not None:
-            heatmap_png = await run_in_threadpool(
-                render_heatmap_png, detection.heatmap, image.width, image.height, settings.heatmap_max_side
-            )
-
-        return AnalysisResponse(
-            request_id=request_id,
+        return AnalysisOutcome(
             detector=self._detector.name,
-            model_version=detection.model_version,
+            model_version=model_version,
             verdict=verdict,
-            explanation=Explanation(heatmap_png=heatmap_png, cues=detection.cues),
-            attribution=detection.attribution,
+            cues=cues,
+            attribution=attribution,
             provenance=provenance,
-            image=ImageInfo(
-                width=image.width,
-                height=image.height,
-                format=image.format,
-                size_bytes=len(raw),
-                sha256=image.sha256,
-            ),
-            timings=Timings(
-                inference_ms=round(inference_ms, 1),
-                total_ms=round((time.perf_counter() - started) * 1000, 1),
-            ),
-            disclaimer=DISCLAIMER,
+            heatmap_png=heatmap_png,
+            inference_ms=round(inference_ms, 1),
+            cached=cached is not None,
         )
 
     async def _detect(self, image: Image.Image, request_id: str) -> tuple[Detection, float]:

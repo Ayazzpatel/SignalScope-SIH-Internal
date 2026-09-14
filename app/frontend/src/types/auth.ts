@@ -8,7 +8,12 @@ export interface User {
   display_name: string
   role: UserRole
   created_at: string
+  save_images_default: boolean
+  /** null = keep until deleted */
+  retention_days: number | null
 }
+
+export type RetentionDays = 7 | 30 | 90 | 365
 
 export interface AuthResponse {
   user: User

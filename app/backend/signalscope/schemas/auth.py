@@ -46,6 +46,8 @@ class UserOut(BaseModel):
     display_name: str
     role: UserRole
     created_at: datetime
+    save_images_default: bool
+    retention_days: int | None
 
 
 class AuthResponse(BaseModel):

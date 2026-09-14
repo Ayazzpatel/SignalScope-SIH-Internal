@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { cueTags, formatBytes } from '../../lib/presentation.ts'
-import type { AnalysisResponse } from '../../types/api.ts'
-import { Button } from '../ui/Button.tsx'
+import type { ResultData } from '../../types/api.ts'
 import { CueList } from './CueList.tsx'
 import { DemoBanner } from './DemoBanner.tsx'
 import { ImageViewer } from './ImageViewer.tsx'
@@ -10,10 +9,15 @@ import { ProvenancePanel } from './ProvenancePanel.tsx'
 import { VerdictCard } from './VerdictCard.tsx'
 
 interface ResultViewProps {
-  result: AnalysisResponse
-  previewUrl: string
+  result: ResultData
+  /** Changes whenever a different result is shown (moves focus to the new verdict). */
+  resultKey: string
+  imageUrl: string | null
   fileName: string
-  onReset: () => void
+  eyebrow: string
+  actions: ReactNode
+  notices?: ReactNode
+  storedLabel: string
 }
 
 function splitName(name: string): [string, string] {
@@ -21,7 +25,7 @@ function splitName(name: string): [string, string] {
   return dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, '']
 }
 
-export function ResultView({ result, previewUrl, fileName, onReset }: ResultViewProps) {
+export function ResultView({ result, resultKey, imageUrl, fileName, eyebrow, actions, notices, storedLabel }: ResultViewProps) {
   const [activeCue, setActiveCue] = useState<number | null>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const tags = useMemo(() => cueTags(result.explanation.cues), [result.explanation.cues])
@@ -30,30 +34,31 @@ export function ResultView({ result, previewUrl, fileName, onReset }: ResultView
   // Move focus to the verdict so screen-reader and keyboard users land on the result.
   useEffect(() => {
     headingRef.current?.focus()
-  }, [result.request_id])
+  }, [resultKey])
 
   return (
     <section className="grid gap-4">
       <div className="mb-2 flex animate-rise flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <span className="label">Analysis result</span>
+          <span className="label">{eyebrow}</span>
           <p className="mt-2.5 truncate text-[clamp(28px,3.6vw,44px)] leading-none font-semibold tracking-[-0.035em]" title={fileName}>
             {stem}
             <em className="display-em">{ext}</em>
           </p>
         </div>
-        <Button variant="ghost" onClick={onReset}>
-          Scan another image
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
       </div>
 
       {result.detector === 'mock' && <DemoBanner />}
+      {notices}
 
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="animate-rise [animation-delay:60ms] lg:col-span-7 lg:row-span-2">
           <ImageViewer
-            src={previewUrl}
-            alt={`Uploaded image: ${fileName}`}
+            src={imageUrl}
+            alt={`Analysed image: ${fileName}`}
+            width={result.image.width}
+            height={result.image.height}
             heatmap={result.explanation.heatmap_png}
             cues={result.explanation.cues}
             tags={tags}
@@ -96,6 +101,9 @@ export function ResultView({ result, previewUrl, fileName, onReset }: ResultView
         </span>
         <span>
           Model <b className="font-medium text-mute">{result.model_version}</b>
+        </span>
+        <span>
+          Stored <b className="font-medium text-mute">{storedLabel}</b>
         </span>
       </p>
     </section>

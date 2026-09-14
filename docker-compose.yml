@@ -25,6 +25,8 @@ services:
       SEED_DEMO_USERS: ${SEED_DEMO_USERS:-true}
       DETECTOR: ${DETECTOR:-mock}
       CORS_ORIGINS: '["http://localhost:8080"]'
+    volumes:
+      - appdata:/srv/app/backend/data # saved heat-maps and opted-in images
     ports:
       - "8000:8000" # API + interactive docs at http://localhost:8000/docs
     depends_on:
@@ -47,3 +49,4 @@ services:
 
 volumes:
   pgdata:
+  appdata:

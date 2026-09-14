@@ -12,7 +12,10 @@ RUN pip install -r requirements.txt
 COPY alembic.ini .
 COPY signalscope ./signalscope
 
-RUN useradd --create-home --uid 1000 signalscope
+# data/ holds history files (heat-maps, opted-in images) on a named volume; the volume inherits this ownership.
+RUN useradd --create-home --uid 1000 signalscope \
+    && mkdir -p /srv/app/backend/data/files \
+    && chown -R signalscope:signalscope /srv/app/backend/data
 USER signalscope
 
 EXPOSE 8000
