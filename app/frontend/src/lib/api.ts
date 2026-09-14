@@ -1,4 +1,4 @@
-import type { AnalysisResponse, ApiErrorBody, HealthResponse } from '../types/api.ts'
+import type { AnalysisResponse, ApiErrorBody, DualAnalysisResponse, HealthResponse } from '../types/api.ts'
 import type {
   AuthResponse,
   MessageResponse,
@@ -90,6 +90,12 @@ export const api = {
     const form = new FormData()
     form.append('file', file)
     return request<AnalysisResponse>('/analyze', { method: 'POST', body: form, signal })
+  },
+
+  analyzeDual: (file: File, signal?: AbortSignal) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<DualAnalysisResponse>('/analyze/dual', { method: 'POST', body: form, signal })
   },
 
   auth: {

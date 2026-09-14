@@ -92,3 +92,22 @@ def test_ml_detector_fails_clearly_when_module_missing(tmp_path):
 
     with pytest.raises(ContractError, match="DETECTOR=mock"):
         detector.load()
+
+
+def test_signalscope_convnext_detector(image):
+    from signalscope.core.config import REPO_ROOT
+
+    detector = MLDetector(module="model.predict", root=REPO_ROOT, device="cpu")
+    detector.load()
+    assert detector.is_ready
+    assert detector.model_version == "convnext-tiny-e1"
+
+    result = detector.predict(image)
+    assert 0.0 <= result.prob_ai <= 1.0
+    assert result.label in {"AI-generated", "Real"}
+    assert 0.0 <= result.ai_probability <= 1.0
+    assert 0.0 <= result.real_probability <= 1.0
+    assert 0.0 <= result.confidence <= 1.0
+    assert result.evidence is not None
+    assert result.evidence.image_size == f"{image.width}x{image.height}"
+

@@ -48,6 +48,18 @@ DbDep = Annotated[AsyncSession, Depends(get_db)]
 ClientInfoDep = Annotated[ClientInfo, Depends(get_client_info)]
 
 
+def get_standalone_state(request: Request):
+    """Returns (container, predict_fn, version) tuple for the Standalone-M model."""
+    return (
+        request.app.state.standalone_model,
+        request.app.state.standalone_predict,
+        request.app.state.standalone_version,
+    )
+
+
+StandaloneStateDep = Annotated[tuple, Depends(get_standalone_state)]
+
+
 def _access_token(request: Request) -> str | None:
     header = request.headers.get("authorization", "")
     if header.lower().startswith("bearer "):

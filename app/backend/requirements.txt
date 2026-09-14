@@ -17,3 +17,8 @@ alembic==1.19.2
 # Auth
 argon2-cffi==25.1.0
 pyjwt==2.14.0
+
+# ML Detector
+torch
+torchvision
+opencv-python

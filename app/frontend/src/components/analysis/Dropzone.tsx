@@ -5,7 +5,7 @@ import { SignalWave } from '../brand/SignalWave.tsx'
 import { Viewfinder } from '../ui/Viewfinder.tsx'
 
 interface DropzoneProps {
-  onFile: (file: File) => void
+  onFiles: (files: File[]) => void
   error?: string | null
 }
 
@@ -19,7 +19,7 @@ function Reticle() {
   )
 }
 
-export function Dropzone({ onFile, error }: DropzoneProps) {
+export function Dropzone({ onFiles, error }: DropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [hovering, setHovering] = useState(false)
@@ -27,21 +27,28 @@ export function Dropzone({ onFile, error }: DropzoneProps) {
   const hintId = useId()
   const shownError = localError ?? error ?? null
 
-  const accept = (file: File | undefined) => {
-    if (!file) return
-    const problem = validateFile(file)
-    setLocalError(problem)
-    if (!problem) onFile(file)
+  const accept = (files: FileList | File[] | null | undefined) => {
+    const list = files ? Array.from(files) : []
+    if (list.length === 0) return
+    // Validate each file; reject the whole batch if any fail
+    for (const f of list) {
+      const problem = validateFile(f)
+      if (problem) { setLocalError(problem); return }
+    }
+    setLocalError(null)
+    onFiles(list)
   }
 
   // Paste an image from the clipboard anywhere on the page.
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
-      const item = Array.from(event.clipboardData?.items ?? []).find((i) => i.kind === 'file')
-      const file = item?.getAsFile()
-      if (file) {
+      const files = Array.from(event.clipboardData?.items ?? [])
+        .filter((i) => i.kind === 'file')
+        .map((i) => i.getAsFile())
+        .filter(Boolean) as File[]
+      if (files.length > 0) {
         event.preventDefault()
-        accept(file)
+        accept(files)
       }
     }
     window.addEventListener('paste', onPaste)
@@ -51,7 +58,7 @@ export function Dropzone({ onFile, error }: DropzoneProps) {
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault()
     setDragging(false)
-    accept(event.dataTransfer.files[0])
+    accept(event.dataTransfer.files)
   }
 
   return (
@@ -81,10 +88,10 @@ export function Dropzone({ onFile, error }: DropzoneProps) {
         >
           <Reticle />
           <p className="text-[22px] font-semibold tracking-tight">
-            {dragging ? 'Release to scan' : 'Drop an image to scan'}
+            {dragging ? 'Release to scan' : 'Drop images to scan'}
           </p>
           <p id={hintId} className="text-sm text-mute">
-            or <span className="text-signal underline underline-offset-4">browse your files</span> · paste with{' '}
+            or{' '}<span className="text-signal underline underline-offset-4">browse your files</span>{' '}· multiple allowed · paste with{' '}
             <kbd className="rounded-sm border border-line-strong px-1.5 font-mono text-[11px]">Ctrl</kbd>{' '}
             <kbd className="rounded-sm border border-line-strong px-1.5 font-mono text-[11px]">V</kbd>
           </p>
@@ -92,12 +99,13 @@ export function Dropzone({ onFile, error }: DropzoneProps) {
             ref={inputRef}
             type="file"
             accept={ACCEPTED_TYPES.join(',')}
+            multiple
             className="sr-only"
             tabIndex={-1}
-            aria-label="Choose an image to analyse"
+            aria-label="Choose images to analyse"
             onChange={(e) => {
-              accept(e.target.files?.[0])
-              e.target.value = '' // allow re-selecting the same file
+              accept(e.target.files)
+              e.target.value = '' // allow re-selecting the same files
             }}
           />
         </div>

@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from signalscope.services.detector.types import Attribution, Cue
+from signalscope.services.detector.types import Attribution, Cue, EvidenceInfo
 
 
 class VerdictBand(StrEnum):
@@ -99,6 +99,11 @@ class AnalysisResponse(BaseModel):
     request_id: str
     detector: Literal["mock", "ml"]
     model_version: str
+    label: str = "Real"
+    ai_probability: float = 0.0
+    real_probability: float = 1.0
+    confidence: float = 1.0
+    evidence: EvidenceInfo | None = None
     verdict: Verdict
     explanation: Explanation
     attribution: Attribution | None
@@ -106,3 +111,21 @@ class AnalysisResponse(BaseModel):
     image: ImageInfo
     timings: Timings
     disclaimer: str
+
+
+class StandaloneResult(BaseModel):
+    """Lightweight result from the Standalone-M model — shown alongside the E1 result."""
+    model_version: str
+    label: str
+    ai_probability: float = Field(ge=0, le=1)
+    real_probability: float = Field(ge=0, le=1)
+    confidence: float = Field(ge=0, le=1)
+    verdict: Verdict
+    inference_ms: float
+    error: str | None = None  # populated if the standalone model failed
+
+
+class DualAnalysisResponse(BaseModel):
+    """Full E1 analysis + side-car Standalone-M result for the /analyze/dual endpoint."""
+    e1: AnalysisResponse
+    standalone: StandaloneResult

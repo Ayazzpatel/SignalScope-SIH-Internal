@@ -4,6 +4,7 @@ import type { AnalysisResponse } from '../../types/api.ts'
 import { Button } from '../ui/Button.tsx'
 import { CueList } from './CueList.tsx'
 import { DemoBanner } from './DemoBanner.tsx'
+import { EvidencePanel } from './EvidencePanel.tsx'
 import { ImageViewer } from './ImageViewer.tsx'
 import { LimitsPanel } from './LimitsPanel.tsx'
 import { ProvenancePanel } from './ProvenancePanel.tsx'
@@ -62,7 +63,15 @@ export function ResultView({ result, previewUrl, fileName, onReset }: ResultView
           />
         </div>
         <div className="animate-rise [animation-delay:120ms] lg:col-span-5" aria-live="polite">
-          <VerdictCard verdict={result.verdict} attribution={result.attribution} headingRef={headingRef} />
+          <VerdictCard
+            verdict={result.verdict}
+            attribution={result.attribution}
+            headingRef={headingRef}
+            label={result.label}
+            aiProbability={result.ai_probability}
+            realProbability={result.real_probability}
+            confidence={result.confidence}
+          />
         </div>
         <div className="animate-rise [animation-delay:180ms] lg:col-span-5">
           <CueList
@@ -73,7 +82,12 @@ export function ResultView({ result, previewUrl, fileName, onReset }: ResultView
             onActiveCueChange={setActiveCue}
           />
         </div>
-        <div className="animate-rise [animation-delay:180ms] lg:col-span-7">
+        {result.evidence && (
+          <div className="animate-rise [animation-delay:180ms] lg:col-span-7">
+            <EvidencePanel evidence={result.evidence} />
+          </div>
+        )}
+        <div className="animate-rise [animation-delay:210ms] lg:col-span-7">
           <ProvenancePanel provenance={result.provenance} />
         </div>
         <div className="animate-rise [animation-delay:240ms] lg:col-span-5">

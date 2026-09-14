@@ -51,10 +51,32 @@ class AnalysisService:
                 render_heatmap_png, detection.heatmap, image.width, image.height, settings.heatmap_max_side
             )
 
+        ai_prob = detection.ai_probability if detection.ai_probability is not None else detection.prob_ai
+        real_prob = detection.real_probability if detection.real_probability is not None else round(1.0 - ai_prob, 4)
+        label = detection.label if detection.label is not None else ("AI-generated" if ai_prob >= 0.5 else "Real")
+        confidence = detection.confidence if detection.confidence is not None else max(ai_prob, real_prob)
+
+        evidence = None
+        if detection.evidence is not None:
+            evidence = detection.evidence
+        else:
+            # Generate basic evidence if not provided by detector
+            evidence = {
+                "image_size": f"{image.width}x{image.height}",
+                "sharpness_laplacian_var": 0.0,
+                "high_frequency_noise_std": 0.0,
+                "exif_present": provenance.exif.present if provenance.exif else False,
+            }
+
         return AnalysisResponse(
             request_id=request_id,
             detector=self._detector.name,
             model_version=detection.model_version,
+            label=label,
+            ai_probability=ai_prob,
+            real_probability=real_prob,
+            confidence=confidence,
+            evidence=evidence,
             verdict=verdict,
             explanation=Explanation(heatmap_png=heatmap_png, cues=detection.cues),
             attribution=detection.attribution,

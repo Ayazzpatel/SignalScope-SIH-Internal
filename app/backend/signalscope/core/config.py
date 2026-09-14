@@ -20,11 +20,12 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
 
     # Detector selection — see docs/ml-contract.md
-    detector: Literal["mock", "ml"] = "mock"
+    detector: Literal["mock", "ml"] = "ml"
     mock_latency_ms: int = 0
     ml_module: str = "model.predict"
     ml_root: Path = REPO_ROOT
     ml_device: str = "cpu"
+    signalscope_model_path: str = ""
 
     # Verdict bands applied to the calibrated prob_ai
     band_likely_real_max: float = 0.35

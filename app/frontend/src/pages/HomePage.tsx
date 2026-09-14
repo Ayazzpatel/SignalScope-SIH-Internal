@@ -1,7 +1,8 @@
-import { AnalyzingState } from '../components/analysis/AnalyzingState.tsx'
+import { useRef } from 'react'
+import { BatchResultView } from '../components/analysis/BatchResultView.tsx'
 import { Dropzone } from '../components/analysis/Dropzone.tsx'
-import { ResultView } from '../components/analysis/ResultView.tsx'
-import { useAnalysis } from '../hooks/useAnalysis.ts'
+import { useBatchAnalysis } from '../hooks/useBatchAnalysis.ts'
+import { ACCEPTED_TYPES } from '../lib/presentation.ts'
 
 const CHECKS = [
   {
@@ -22,27 +23,37 @@ const CHECKS = [
 ]
 
 export function HomePage() {
-  const { state, analyze, reset } = useAnalysis()
+  const { state, addFiles, setActive, reset } = useBatchAnalysis()
+  // Hidden file input for "Add more images" / "Scan another image"
+  const addMoreRef = useRef<HTMLInputElement>(null)
 
-  if (state.kind === 'done') {
-    return (
-      <ResultView
-        result={state.result}
-        previewUrl={state.previewUrl}
-        fileName={state.file.name || 'Pasted image'}
-        onReset={() => reset()}
-      />
-    )
-  }
+  const openFilePicker = () => addMoreRef.current?.click()
 
-  if (state.kind === 'analyzing') {
+  if (state.kind === 'batch') {
     return (
-      <AnalyzingState
-        previewUrl={state.previewUrl}
-        fileName={state.file.name || 'Pasted image'}
-        fileSize={state.file.size}
-        onCancel={() => reset()}
-      />
+      <>
+        {/* Hidden input to add more images without resetting */}
+        <input
+          ref={addMoreRef}
+          type="file"
+          accept={ACCEPTED_TYPES.join(',')}
+          multiple
+          className="sr-only"
+          aria-label="Add more images"
+          onChange={(e) => {
+            const files = e.target.files ? Array.from(e.target.files) : []
+            if (files.length > 0) addFiles(files)
+            e.target.value = ''
+          }}
+        />
+        <BatchResultView
+          items={state.items}
+          activeId={state.activeId}
+          onSetActive={setActive}
+          onReset={() => reset()}
+          onAddMore={openFilePicker}
+        />
+      </>
     )
   }
 
@@ -79,7 +90,7 @@ export function HomePage() {
           </dl>
         </div>
         <div className="animate-rise [animation-delay:120ms]">
-          <Dropzone onFile={analyze} error={state.error} />
+          <Dropzone onFiles={addFiles} error={state.error} />
         </div>
       </section>
 
@@ -104,7 +115,7 @@ export function HomePage() {
           A <em className="text-signal">likelihood,</em> never an accusation.
         </p>
         <p className="max-w-[38ch] text-[14.5px] text-mute">
-          Every verdict comes with a calibrated probability, an honest “uncertain” band, and the regions that drove it —
+          Every verdict comes with a calibrated probability, an honest "uncertain" band, and the regions that drove it —
           so people can judge for themselves.
         </p>
       </section>

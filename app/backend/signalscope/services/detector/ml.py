@@ -45,6 +45,8 @@ class MLDetector(Detector):
 
         self._module = module
         self._model = module.load_model(device=self._device)
+        if hasattr(module, "MODEL_VERSION"):
+            self._version = str(module.MODEL_VERSION)
 
     @property
     def model_version(self) -> str:

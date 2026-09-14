@@ -85,10 +85,22 @@ export interface Provenance {
   agreement_note: string | null
 }
 
+export interface EvidenceInfo {
+  image_size: string
+  sharpness_laplacian_var: number
+  high_frequency_noise_std: number
+  exif_present: boolean
+}
+
 export interface AnalysisResponse {
   request_id: string
   detector: 'mock' | 'ml'
   model_version: string
+  label: string
+  ai_probability: number
+  real_probability: number
+  confidence: number
+  evidence?: EvidenceInfo
   verdict: Verdict
   explanation: { heatmap_png: string | null; cues: Cue[] }
   attribution: Attribution | null
@@ -96,6 +108,22 @@ export interface AnalysisResponse {
   image: { width: number; height: number; format: string; size_bytes: number; sha256: string }
   timings: { inference_ms: number; total_ms: number }
   disclaimer: string
+}
+
+export interface StandaloneResult {
+  model_version: string
+  label: string
+  ai_probability: number
+  real_probability: number
+  confidence: number
+  verdict: Verdict
+  inference_ms: number
+  error: string | null
+}
+
+export interface DualAnalysisResponse {
+  e1: AnalysisResponse
+  standalone: StandaloneResult
 }
 
 export interface ApiErrorBody {

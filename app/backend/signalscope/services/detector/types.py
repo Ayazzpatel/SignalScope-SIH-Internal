@@ -38,6 +38,13 @@ class Attribution(BaseModel):
     confidence: Unit
 
 
+class EvidenceInfo(BaseModel):
+    image_size: str
+    sharpness_laplacian_var: float
+    high_frequency_noise_std: float
+    exif_present: bool
+
+
 class Detection(BaseModel):
     """Validated result of a single detector.predict() call."""
 
@@ -48,6 +55,11 @@ class Detection(BaseModel):
     heatmap: np.ndarray | None = None
     cues: list[Cue] = Field(default_factory=list)
     attribution: Attribution | None = None
+    label: str | None = None
+    ai_probability: float | None = None
+    real_probability: float | None = None
+    confidence: float | None = None
+    evidence: EvidenceInfo | None = None
 
     @field_validator("heatmap", mode="before")
     @classmethod

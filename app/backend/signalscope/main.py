@@ -55,6 +55,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.analysis = AnalysisService(detector, settings)
     logger.info("Detector '%s' ready (model %s)", detector.name, detector.model_version)
 
+    # Standalone-M — load in parallel (independent of E1)
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        _repo_root = str(_Path(__file__).resolve().parents[4])
+        if _repo_root not in _sys.path:
+            _sys.path.insert(0, _repo_root)
+        import importlib as _il
+        _sm = _il.import_module("model.predict_standalone")
+        standalone_container = await run_in_threadpool(_sm.load_model, settings.ml_device)
+        app.state.standalone_model = standalone_container
+        app.state.standalone_predict = _sm.predict
+        app.state.standalone_version = _sm.MODEL_VERSION
+        logger.info("Standalone-M model ready (version %s)", _sm.MODEL_VERSION)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Standalone-M failed to load — dual endpoint will return error: %s", exc)
+        app.state.standalone_model = None
+        app.state.standalone_predict = None
+        app.state.standalone_version = "unavailable"
+
     try:
         yield
     finally:

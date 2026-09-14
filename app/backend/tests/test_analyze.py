@@ -143,3 +143,27 @@ def test_rejects_too_many_pixels(strict_client, encode):
 
     assert response.status_code == 413
     assert response.json()["error"]["code"] == "image_too_large"
+
+
+def test_analyze_with_signalscope_ml_detector(monkeypatch, encode):
+    monkeypatch.setenv("DETECTOR", "ml")
+    monkeypatch.setenv("ML_MODULE", "model.predict")
+    monkeypatch.setenv("ML_DEVICE", "cpu")
+    get_settings.cache_clear()
+
+    with TestClient(create_app()) as ml_client:
+        response = post(ml_client, encode("JPEG", size=(256, 256)))
+        assert response.status_code == 200
+        body = response.json()
+        assert body["detector"] == "ml"
+        assert body["model_version"] == "convnext-tiny-e1"
+        assert body["label"] in {"AI-generated", "Real"}
+        assert "ai_probability" in body
+        assert "real_probability" in body
+        assert "confidence" in body
+        assert "evidence" in body
+        assert body["evidence"]["image_size"] == "256x256"
+        assert "sharpness_laplacian_var" in body["evidence"]
+        assert "high_frequency_noise_std" in body["evidence"]
+        assert "exif_present" in body["evidence"]
+
