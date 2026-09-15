@@ -62,7 +62,10 @@ async def analyze_ensemble(
 ) -> EnsembleAnalysisResponse:
     """Run E1, Standalone-M and E2 on the same image.
 
-    `final` is "likely AI-generated" if any model's P(AI) reaches ENSEMBLE_AI_THRESHOLD (default 0.25).
+    `final` is decided by a vote of at least ENSEMBLE_MIN_VOTES models (default 2) against
+    ENSEMBLE_AI_THRESHOLD (default 0.25); if fewer models are available, all of them must agree.
+    With ENSEMBLE_INVERT=true (default) a model votes AI when its P(AI) is at or below the threshold;
+    with false, when it is at or above. `models[].ai_probability` is always the raw model output.
     A secondary model that fails is reported in `models[].error` and left out of the decision;
     E1 is required. The image is processed in memory and is not stored.
     """

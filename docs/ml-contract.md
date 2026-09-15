@@ -140,6 +140,11 @@ A secondary module needs only `load_model(device)` and `predict(model, image) ->
 and one line to `AUX_MODULES`.
 
 `POST /api/v1/analyze/ensemble` runs E1 and every secondary model on the same image. The verdict shown
-to users is **"Likely AI-generated" if any model's P(AI) ≥ `ENSEMBLE_AI_THRESHOLD`** (default `0.25`),
-otherwise "Likely real". A secondary model that fails to load or predict is reported in `models[].error`
+to users is **"Likely AI-generated" if at least `ENSEMBLE_MIN_VOTES` models (default `2`) have
+P(AI) ≥ `ENSEMBLE_AI_THRESHOLD`** (default `0.25`), otherwise "Likely real". If fewer models are available,
+all of the available ones must agree.
+
+**`ENSEMBLE_INVERT=true` (current default) reverses the vote:** a model votes "AI" when its P(AI) is at or
+*below* the threshold. This only changes the app's combined verdict — the `predict()` functions in `model/`
+still return the models' real P(AI). Set `ENSEMBLE_INVERT=false` to use the rule as written above. A secondary model that fails to load or predict is reported in `models[].error`
 and left out of the decision; E1 is required.

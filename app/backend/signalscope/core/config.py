@@ -31,8 +31,14 @@ class Settings(BaseSettings):
     band_likely_real_max: float = 0.35
     band_likely_ai_min: float = 0.65
 
-    # Combined verdict (/analyze/ensemble): "likely AI" if ANY model's P(AI) reaches this value
+    # Combined verdict (/analyze/ensemble): "likely AI" if at least `ensemble_min_votes` models reach
+    # `ensemble_ai_threshold` (all available models, if fewer than that loaded).
+    # `ensemble_invert` reverses the vote: a model votes AI when its P(AI) is AT OR BELOW the threshold.
+    # Chosen by the team after the models looked reversed on their own images; it contradicts the models'
+    # held-out results. Set ENSEMBLE_INVERT=false (with e.g. ENSEMBLE_AI_THRESHOLD=0.35) to restore.
     ensemble_ai_threshold: float = 0.25
+    ensemble_min_votes: int = 2
+    ensemble_invert: bool = True
 
     # Upload limits
     max_upload_mb: int = 20
@@ -76,6 +82,8 @@ class Settings(BaseSettings):
             raise ValueError("Require 0 <= BAND_LIKELY_REAL_MAX < BAND_LIKELY_AI_MIN <= 1")
         if not 0 < self.ensemble_ai_threshold <= 1:
             raise ValueError("Require 0 < ENSEMBLE_AI_THRESHOLD <= 1")
+        if self.ensemble_min_votes < 1:
+            raise ValueError("Require ENSEMBLE_MIN_VOTES >= 1")
         if not self.secret_key:
             if self.environment == "production":
                 raise ValueError("SECRET_KEY must be set in production")

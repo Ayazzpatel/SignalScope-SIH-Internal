@@ -6,8 +6,8 @@ export function LimitsPanel({ disclaimer }: { disclaimer: string }) {
       </h3>
       <div className="mt-4 grid gap-3 text-[13.5px] text-mute">
         <p>
-          <strong className="font-medium text-text">We err on the side of caution:</strong> even moderate signs of AI
-          generation are enough to flag an image, so some real photos will be flagged too.
+          <strong className="font-medium text-text">Our models must agree:</strong> the verdict needs at least two of
+          our detection models to agree. Some real photos can still be flagged, and some AI images missed.
         </p>
         <p>
           <strong className="font-medium text-text">The heat-map shows where to look,</strong> not proof of manipulation.

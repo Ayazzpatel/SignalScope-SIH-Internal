@@ -154,13 +154,14 @@ alembic upgrade head
 ```
 upload → validate & decode (real format, size, pixel limit, EXIF orientation)
        → E1 ‖ Standalone-M ‖ E2 (worker threads, concurrency cap, timeout)  ‖  provenance (EXIF, XMP/IPTC, PNG text, C2PA)
-       → combined verdict: "Likely AI-generated" if ANY model's P(AI) ≥ 0.25, else "Likely real"
+       → combined verdict: "Likely AI-generated" if AT LEAST 2 of the 3 models give P(AI) ≤ 0.25, else "Likely real"
+         (reversed vote, ENSEMBLE_INVERT=true — see Known limitations; false = "≥ threshold")
        → metadata-agreement note (does declared provenance agree with the verdict?)
 ```
 
-- **Why "any model ≥ 0.25"?** The three models were trained on different data and fail on different images.
-  Flagging when any one of them sees moderate evidence catches generators a single model misses. The trade-off
-  is more real photos flagged — the UI says so plainly. Tune it with `ENSEMBLE_AI_THRESHOLD`.
+- **Why 2 of 3 models?** The three models were trained on different data and fail on different images.
+  Requiring two of them to agree stops a single model from deciding on its own. If a model is unavailable, all
+  remaining models must agree. Tune it with `ENSEMBLE_MIN_VOTES`, `ENSEMBLE_AI_THRESHOLD` and `ENSEMBLE_INVERT`.
 - **Minimal, non-accusatory UI.** Users see one verdict, a one-line explanation and "Checked by 3 detection
   models" — no per-model breakdown and no percentage, to avoid false precision.
 - A model that fails is reported in the API response and left out of the decision; E1 is required.
@@ -256,8 +257,18 @@ an `X-Request-ID` header. Uploads are processed in memory and never stored.
 
 ### Known limitations
 
-- The low 0.25 "any model" threshold trades false positives for recall; the combined verdict's FPR has not been
-  measured yet.
+- **The app's verdict is currently reversed** (`ENSEMBLE_INVERT=true`): an image is called "Likely AI-generated"
+  when two models give it a *low* AI probability. The team chose this after the models' verdicts looked reversed
+  on their own test images. It contradicts the models' held-out results — e.g. Standalone-M averages P(AI) 0.65
+  on unseen AI images vs 0.13 on real ones — so on images like the training/test data the app's verdict will
+  mostly be wrong. The predict interfaces in `model/` are **not** reversed. Set `ENSEMBLE_INVERT=false` (with
+  `ENSEMBLE_AI_THRESHOLD=0.35`) to restore the normal rule. The combined verdict's FPR and recall have not been
+  measured in either mode.
+- All three models learned only 2022-era generators (ADM, BigGAN, GLIDE, SD v1.x, Wukong); images from newer
+  tools (e.g. Midjourney v6, DALL·E 3, Flux) can be scored as real.
+- In every training set, all real images are JPEG and all AI images are PNG, so the models may have learned file
+  format as a shortcut. Re-encoding a couple of test images did not change their scores, but this has not been
+  ruled out; format-balanced training data would remove the risk.
 - E2 was trained on Wukong, so Wukong is no longer an unseen generator for the combined system; a new held-out
   generator (e.g. Midjourney, VQDM) is needed for an honest unseen-split score.
 - No heat-maps, cues or generator attribution from the models yet (Modules A/B).

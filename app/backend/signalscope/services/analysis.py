@@ -64,6 +64,8 @@ class AnalysisService:
         final = make_ensemble_verdict(
             [s.ai_probability for s in scores if s.ai_probability is not None],
             self._settings.ensemble_ai_threshold,
+            self._settings.ensemble_min_votes,
+            invert=self._settings.ensemble_invert,
         )
         # Compare declared metadata against the verdict the user actually sees.
         assess_agreement(final, primary.provenance)

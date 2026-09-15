@@ -120,7 +120,7 @@ export interface ModelScore {
 }
 
 export interface EnsembleAnalysisResponse {
-  /** The one verdict shown to users: likely_ai if any model reaches the threshold. */
+  /** The one verdict shown to users, decided by a vote of at least two models (see docs/ml-contract.md §7). */
   final: Verdict
   models: ModelScore[]
   /** Primary (E1) analysis: heat-map, cues, evidence, provenance, image info. */
