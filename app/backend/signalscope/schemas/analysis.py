@@ -113,19 +113,19 @@ class AnalysisResponse(BaseModel):
     disclaimer: str
 
 
-class StandaloneResult(BaseModel):
-    """Lightweight result from the Standalone-M model — shown alongside the E1 result."""
+class ModelScore(BaseModel):
+    """One detector's contribution to the combined verdict."""
+
+    key: str
     model_version: str
-    label: str
-    ai_probability: float = Field(ge=0, le=1)
-    real_probability: float = Field(ge=0, le=1)
-    confidence: float = Field(ge=0, le=1)
-    verdict: Verdict
-    inference_ms: float
-    error: str | None = None  # populated if the standalone model failed
+    ai_probability: float | None = Field(None, ge=0, le=1, description="None when the model failed.")
+    inference_ms: float = 0.0
+    error: str | None = None
 
 
-class DualAnalysisResponse(BaseModel):
-    """Full E1 analysis + side-car Standalone-M result for the /analyze/dual endpoint."""
-    e1: AnalysisResponse
-    standalone: StandaloneResult
+class EnsembleAnalysisResponse(BaseModel):
+    """Combined verdict across every detector, plus the primary model's full analysis."""
+
+    final: Verdict = Field(description="The one verdict shown to users.")
+    models: list[ModelScore]
+    analysis: AnalysisResponse = Field(description="Primary (E1) analysis: image info, evidence, provenance.")

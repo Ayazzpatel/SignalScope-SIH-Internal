@@ -3,34 +3,75 @@
 import asyncio
 import logging
 import time
+from collections.abc import Sequence
 
 from fastapi.concurrency import run_in_threadpool
 from PIL import Image
 
 from signalscope.core.config import Settings
 from signalscope.core.errors import AppError
-from signalscope.schemas.analysis import AnalysisResponse, Explanation, ImageInfo, Timings
+from signalscope.schemas.analysis import (
+    AnalysisResponse,
+    EnsembleAnalysisResponse,
+    Explanation,
+    ImageInfo,
+    ModelScore,
+    Timings,
+)
+from signalscope.services.aux_models import AuxModel
 from signalscope.services.detector import ContractError, Detection, Detector
 from signalscope.services.heatmap import render_heatmap_png
-from signalscope.services.image_io import decode_image
+from signalscope.services.image_io import DecodedImage, decode_image
 from signalscope.services.provenance import extract_provenance
-from signalscope.services.verdict import DISCLAIMER, assess_agreement, make_verdict
+from signalscope.services.verdict import DISCLAIMER, assess_agreement, make_ensemble_verdict, make_verdict
 
 logger = logging.getLogger("signalscope")
 
+PRIMARY_MODEL_KEY = "e1"
+
 
 class AnalysisService:
-    def __init__(self, detector: Detector, settings: Settings) -> None:
+    def __init__(self, detector: Detector, settings: Settings, aux_models: Sequence[AuxModel] = ()) -> None:
         self._detector = detector
         self._settings = settings
+        self._aux_models = list(aux_models)
         # Caps concurrent model calls so a burst of uploads cannot exhaust CPU/GPU memory.
         self._inference_slots = asyncio.Semaphore(settings.max_concurrent_inference)
 
     async def analyze(self, raw: bytes, request_id: str) -> AnalysisResponse:
-        settings = self._settings
         started = time.perf_counter()
+        image = await run_in_threadpool(decode_image, raw, self._settings.max_image_pixels)
+        return await self._analyze_image(image, request_id, started)
 
-        image = await run_in_threadpool(decode_image, raw, settings.max_image_pixels)
+    async def analyze_ensemble(self, raw: bytes, request_id: str) -> EnsembleAnalysisResponse:
+        """Primary analysis plus every secondary model on the same decoded image, combined into one verdict."""
+        started = time.perf_counter()
+        image = await run_in_threadpool(decode_image, raw, self._settings.max_image_pixels)
+
+        primary, *secondary = await asyncio.gather(
+            self._analyze_image(image, request_id, started),
+            *(self._score_aux(model, image.rgb, request_id) for model in self._aux_models),
+        )
+        scores = [
+            ModelScore(
+                key=PRIMARY_MODEL_KEY,
+                model_version=primary.model_version,
+                ai_probability=primary.ai_probability,
+                inference_ms=primary.timings.inference_ms,
+            ),
+            *secondary,
+        ]
+        final = make_ensemble_verdict(
+            [s.ai_probability for s in scores if s.ai_probability is not None],
+            self._settings.ensemble_ai_threshold,
+        )
+        # Compare declared metadata against the verdict the user actually sees.
+        assess_agreement(final, primary.provenance)
+        return EnsembleAnalysisResponse(final=final, models=scores, analysis=primary)
+
+    async def _analyze_image(self, image: DecodedImage, request_id: str, started: float) -> AnalysisResponse:
+        settings = self._settings
+        raw = image.raw
 
         provenance_task = asyncio.ensure_future(
             run_in_threadpool(extract_provenance, image.raw, image.source, image.mime_type)
@@ -93,6 +134,28 @@ class AnalysisService:
                 total_ms=round((time.perf_counter() - started) * 1000, 1),
             ),
             disclaimer=DISCLAIMER,
+        )
+
+    async def _score_aux(self, model: AuxModel, image: Image.Image, request_id: str) -> ModelScore:
+        """Run one secondary model. Failures are reported in the score, never raised."""
+        if not model.is_ready:
+            return ModelScore(key=model.key, model_version=model.version, error="Model is not loaded.")
+        try:
+            async with asyncio.timeout(self._settings.inference_timeout_s), self._inference_slots:
+                started = time.perf_counter()
+                prob, version = await run_in_threadpool(model.ai_probability, image)
+                elapsed_ms = (time.perf_counter() - started) * 1000
+        except TimeoutError:
+            logger.warning("Secondary model '%s' timed out (request_id=%s)", model.key, request_id)
+            return ModelScore(key=model.key, model_version=model.version, error="Timed out.")
+        except Exception:
+            logger.exception("Secondary model '%s' failed (request_id=%s)", model.key, request_id)
+            return ModelScore(key=model.key, model_version=model.version, error="Inference failed.")
+        return ModelScore(
+            key=model.key,
+            model_version=version,
+            ai_probability=round(prob, 4),
+            inference_ms=round(elapsed_ms, 1),
         )
 
     async def _detect(self, image: Image.Image, request_id: str) -> tuple[Detection, float]:

@@ -6,10 +6,10 @@ import { Button } from '../ui/Button.tsx'
 import { CueList } from './CueList.tsx'
 import { DemoBanner } from './DemoBanner.tsx'
 import { EvidencePanel } from './EvidencePanel.tsx'
+import { FinalVerdictCard } from './FinalVerdictCard.tsx'
 import { ImageViewer } from './ImageViewer.tsx'
 import { LimitsPanel } from './LimitsPanel.tsx'
 import { ProvenancePanel } from './ProvenancePanel.tsx'
-import { VerdictCard } from './VerdictCard.tsx'
 
 interface BatchResultViewProps {
   items: BatchItem[]
@@ -17,6 +17,10 @@ interface BatchResultViewProps {
   onSetActive: (id: string) => void
   onReset: () => void
   onAddMore: () => void
+}
+
+function isLikelyAI(item: BatchItem): boolean {
+  return item.result?.final.band === 'likely_ai'
 }
 
 function StatusIcon({ status }: { status: BatchItem['status'] }) {
@@ -28,7 +32,7 @@ function StatusIcon({ status }: { status: BatchItem['status'] }) {
 
 function LabelChip({ item }: { item: BatchItem }) {
   if (item.status === 'done' && item.result) {
-    const isAI = item.result.e1.ai_probability >= 0.5
+    const isAI = isLikelyAI(item)
     return (
       <span
         className={`ml-auto shrink-0 rounded-sm px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide ${
@@ -55,8 +59,8 @@ export function BatchResultView({ items, activeId, onSetActive, onReset, onAddMo
   const headingRef = useRef<HTMLHeadingElement>(null)
 
   const tags = useMemo(
-    () => cueTags(active?.result?.e1.explanation.cues ?? []),
-    [active?.result?.e1.explanation.cues],
+    () => cueTags(active?.result?.analysis.explanation.cues ?? []),
+    [active?.result?.analysis.explanation.cues],
   )
 
   useEffect(() => {
@@ -66,8 +70,8 @@ export function BatchResultView({ items, activeId, onSetActive, onReset, onAddMo
 
   const doneCount = items.filter((i) => i.status === 'done').length
   const totalCount = items.length
-  const aiCount = items.filter((i) => i.result && i.result.e1.ai_probability >= 0.5).length
-  const realCount = items.filter((i) => i.result && i.result.e1.ai_probability < 0.5).length
+  const aiCount = items.filter((i) => i.result && isLikelyAI(i)).length
+  const realCount = items.filter((i) => i.result && !isLikelyAI(i)).length
 
   return (
     <section className="grid gap-4">
@@ -173,80 +177,56 @@ export function BatchResultView({ items, activeId, onSetActive, onReset, onAddMo
             </div>
           ) : active.result ? (
             <div className="grid gap-4">
-              {active.result.e1.detector === 'mock' && <DemoBanner />}
+              {active.result.analysis.detector === 'mock' && <DemoBanner />}
               <div className="grid gap-4 lg:grid-cols-12">
                 <div className="animate-rise [animation-delay:60ms] lg:col-span-7 lg:row-span-2">
                   <ImageViewer
                     src={active.previewUrl}
                     alt={`Uploaded image: ${active.file.name}`}
-                    heatmap={active.result.e1.explanation.heatmap_png}
-                    cues={active.result.e1.explanation.cues}
+                    heatmap={active.result.analysis.explanation.heatmap_png}
+                    cues={active.result.analysis.explanation.cues}
                     tags={tags}
                     activeCue={activeCue}
                     onActiveCueChange={setActiveCue}
                   />
                 </div>
-                <div className="animate-rise [animation-delay:120ms] lg:col-span-5 flex flex-col gap-4" aria-live="polite">
-                  <VerdictCard
-                    title={`E1 Model · ${active.result.e1.model_version}`}
-                    verdict={active.result.e1.verdict}
-                    attribution={active.result.e1.attribution}
+                <div className="animate-rise [animation-delay:120ms] lg:col-span-5" aria-live="polite">
+                  <FinalVerdictCard
+                    verdict={active.result.final}
+                    models={active.result.models}
                     headingRef={headingRef}
-                    label={active.result.e1.label}
-                    aiProbability={active.result.e1.ai_probability}
-                    realProbability={active.result.e1.real_probability}
-                    confidence={active.result.e1.confidence}
                   />
-                  {active.result.standalone.error ? (
-                    <div className="panel p-5 sm:p-6 flex flex-col items-center justify-center text-center text-ai border-ai/20 bg-ai/5">
-                       <TriangleAlert className="size-6 mb-2" />
-                       <p className="text-sm font-medium">Standalone-M failed</p>
-                       <p className="text-xs mt-1 text-mute/80">{active.result.standalone.error}</p>
-                    </div>
-                  ) : (
-                    <VerdictCard
-                      title={`Standalone-M · ${active.result.standalone.model_version}`}
-                      verdict={active.result.standalone.verdict}
-                      attribution={null}
-                      label={active.result.standalone.label}
-                      aiProbability={active.result.standalone.ai_probability}
-                      realProbability={active.result.standalone.real_probability}
-                      confidence={active.result.standalone.confidence}
-                    />
-                  )}
                 </div>
                 <div className="animate-rise [animation-delay:180ms] lg:col-span-5">
                   <CueList
-                    cues={active.result.e1.explanation.cues}
+                    cues={active.result.analysis.explanation.cues}
                     tags={tags}
-                    band={active.result.e1.verdict.band}
+                    band={active.result.final.band}
                     activeCue={activeCue}
                     onActiveCueChange={setActiveCue}
                   />
                 </div>
-                {active.result.e1.evidence && (
+                {active.result.analysis.evidence && (
                   <div className="animate-rise [animation-delay:180ms] lg:col-span-7">
-                    <EvidencePanel evidence={active.result.e1.evidence} />
+                    <EvidencePanel evidence={active.result.analysis.evidence} />
                   </div>
                 )}
                 <div className="animate-rise [animation-delay:210ms] lg:col-span-7">
-                  <ProvenancePanel provenance={active.result.e1.provenance} />
+                  <ProvenancePanel provenance={active.result.analysis.provenance} />
                 </div>
                 <div className="animate-rise [animation-delay:240ms] lg:col-span-5">
-                  <LimitsPanel verdict={active.result.e1.verdict} disclaimer={active.result.e1.disclaimer} />
+                  <LimitsPanel disclaimer={active.result.analysis.disclaimer} />
                 </div>
               </div>
               <p className="flex flex-wrap gap-x-5 gap-y-2 font-mono text-[11.5px] tracking-[0.04em] text-faint">
-                <span title={active.result.e1.image.sha256}>
-                  SHA-256 <b className="font-medium text-mute">{active.result.e1.image.sha256.slice(0, 12)}…</b>
+                <span title={active.result.analysis.image.sha256}>
+                  SHA-256 <b className="font-medium text-mute">{active.result.analysis.image.sha256.slice(0, 12)}…</b>
                 </span>
                 <span>
-                  {active.result.e1.image.width}×{active.result.e1.image.height}{' '}
-                  <b className="font-medium text-mute">{active.result.e1.image.format}</b>
+                  {active.result.analysis.image.width}×{active.result.analysis.image.height}{' '}
+                  <b className="font-medium text-mute">{active.result.analysis.image.format}</b>
                 </span>
-                <span>Size <b className="font-medium text-mute">{formatBytes(active.result.e1.image.size_bytes)}</b></span>
-                <span>E1 <b className="font-medium text-mute">{Math.round(active.result.e1.timings.total_ms)} ms</b></span>
-                <span>M <b className="font-medium text-mute">{Math.round(active.result.standalone.inference_ms)} ms</b></span>
+                <span>Size <b className="font-medium text-mute">{formatBytes(active.result.analysis.image.size_bytes)}</b></span>
               </p>
             </div>
           ) : null}

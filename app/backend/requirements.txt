@@ -21,4 +21,5 @@ pyjwt==2.14.0
 # ML Detector
 torch
 torchvision
-opencv-python
+opencv-python-headless  # no GUI/libGL needed on servers
+timm  # Standalone-M backbone

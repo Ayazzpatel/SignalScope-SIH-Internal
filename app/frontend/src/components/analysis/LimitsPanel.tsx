@@ -1,10 +1,4 @@
-import { percent } from '../../lib/presentation.ts'
-import type { Verdict } from '../../types/api.ts'
-
-export function LimitsPanel({ verdict, disclaimer }: { verdict: Verdict; disclaimer: string }) {
-  const pct = percent(verdict.prob_ai)
-  const perHundred = Math.round(verdict.prob_ai * 100)
-
+export function LimitsPanel({ disclaimer }: { disclaimer: string }) {
   return (
     <section className="panel p-5 sm:p-6" aria-labelledby="limits-heading">
       <h3 id="limits-heading" className="label">
@@ -12,12 +6,8 @@ export function LimitsPanel({ verdict, disclaimer }: { verdict: Verdict; disclai
       </h3>
       <div className="mt-4 grid gap-3 text-[13.5px] text-mute">
         <p>
-          <strong className="font-medium text-text">{pct} is calibrated:</strong> across many images scored like this,
-          about {perHundred} in 100 turned out to be AI-generated. It is not certainty about this one.
-        </p>
-        <p>
-          <strong className="font-medium text-text">“Uncertain” is an honest answer</strong> — the evidence is genuinely
-          mixed, not a failure.
+          <strong className="font-medium text-text">We err on the side of caution:</strong> even moderate signs of AI
+          generation are enough to flag an image, so some real photos will be flagged too.
         </p>
         <p>
           <strong className="font-medium text-text">The heat-map shows where to look,</strong> not proof of manipulation.

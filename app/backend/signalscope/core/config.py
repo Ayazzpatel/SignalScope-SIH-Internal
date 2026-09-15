@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     band_likely_real_max: float = 0.35
     band_likely_ai_min: float = 0.65
 
+    # Combined verdict (/analyze/ensemble): "likely AI" if ANY model's P(AI) reaches this value
+    ensemble_ai_threshold: float = 0.25
+
     # Upload limits
     max_upload_mb: int = 20
     max_image_pixels: int = 40_000_000  # ~40 MP; guards against decompression bombs
@@ -71,6 +74,8 @@ class Settings(BaseSettings):
     def _validate(self) -> "Settings":
         if not 0 <= self.band_likely_real_max < self.band_likely_ai_min <= 1:
             raise ValueError("Require 0 <= BAND_LIKELY_REAL_MAX < BAND_LIKELY_AI_MIN <= 1")
+        if not 0 < self.ensemble_ai_threshold <= 1:
+            raise ValueError("Require 0 < ENSEMBLE_AI_THRESHOLD <= 1")
         if not self.secret_key:
             if self.environment == "production":
                 raise ValueError("SECRET_KEY must be set in production")

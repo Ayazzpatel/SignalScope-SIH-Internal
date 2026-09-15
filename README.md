@@ -95,6 +95,7 @@ Browser (React) ──► nginx ──► FastAPI /api/v1 ──► Detector int
 |---|---|
 | `GET /api/v1/health` | Service, detector and database status |
 | `POST /api/v1/analyze` | Multipart `file` (JPEG/PNG/WebP, ≤ 20 MB) → verdict band, calibrated `prob_ai`, heat-map overlay, cues, attribution, provenance |
+| `POST /api/v1/analyze/ensemble` | Same upload → E1 + Standalone-M + E2; `final` is "Likely AI-generated" if any model's P(AI) ≥ `ENSEMBLE_AI_THRESHOLD` (0.25). Used by the web UI — see docs/ml-contract.md §7 |
 | `POST /api/v1/auth/signup` · `/login` · `/logout` · `/logout-all` | Account lifecycle (sets httpOnly cookies) |
 | `POST /api/v1/auth/refresh` | Rotate session tokens |
 | `GET /api/v1/auth/session` | Current user or `null` (app bootstrap; refreshes transparently) |

@@ -91,7 +91,7 @@ export function ResultView({ result, previewUrl, fileName, onReset }: ResultView
           <ProvenancePanel provenance={result.provenance} />
         </div>
         <div className="animate-rise [animation-delay:240ms] lg:col-span-5">
-          <LimitsPanel verdict={result.verdict} disclaimer={result.disclaimer} />
+          <LimitsPanel disclaimer={result.disclaimer} />
         </div>
       </div>
 

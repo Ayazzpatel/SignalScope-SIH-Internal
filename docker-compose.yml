@@ -14,7 +14,13 @@ services:
       retries: 10
 
   backend:
-    build: ./app/backend
+    build:
+      context: . # repo root, so the image can include the model/ inference code
+      dockerfile: app/backend/Dockerfile
+    volumes:
+      # Model weights (~1 GB, gitignored) stay out of the image. Expects model/model/{signalscope_E1,
+      # Standalone_M,signalscope_E2_modern}/*.pt — see docs/ml-contract.md.
+      - ./model/model:/srv/model/model:ro
     environment:
       ENVIRONMENT: production
       DATABASE_URL: postgresql+asyncpg://signalscope:${POSTGRES_PASSWORD:-signalscope}@db:5432/signalscope
@@ -23,7 +29,8 @@ services:
       # Cookies are sent over plain HTTP on localhost. Set to true when serving over HTTPS.
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       SEED_DEMO_USERS: ${SEED_DEMO_USERS:-true}
-      DETECTOR: ${DETECTOR:-mock}
+      # "ml" runs E1 + Standalone-M + E2 from the mounted weights; "mock" needs no weights.
+      DETECTOR: ${DETECTOR:-ml}
       CORS_ORIGINS: '["http://localhost:8080"]'
     ports:
       - "8000:8000" # API + interactive docs at http://localhost:8000/docs
@@ -35,7 +42,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 20s
+      start_period: 90s # loading three models on CPU takes a while
 
   frontend:
     build: ./app/frontend

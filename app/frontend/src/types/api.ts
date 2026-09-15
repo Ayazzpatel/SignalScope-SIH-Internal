@@ -110,20 +110,21 @@ export interface AnalysisResponse {
   disclaimer: string
 }
 
-export interface StandaloneResult {
+export interface ModelScore {
+  key: string
   model_version: string
-  label: string
-  ai_probability: number
-  real_probability: number
-  confidence: number
-  verdict: Verdict
+  /** null when this model failed; it is then left out of the final verdict. */
+  ai_probability: number | null
   inference_ms: number
   error: string | null
 }
 
-export interface DualAnalysisResponse {
-  e1: AnalysisResponse
-  standalone: StandaloneResult
+export interface EnsembleAnalysisResponse {
+  /** The one verdict shown to users: likely_ai if any model reaches the threshold. */
+  final: Verdict
+  models: ModelScore[]
+  /** Primary (E1) analysis: heat-map, cues, evidence, provenance, image info. */
+  analysis: AnalysisResponse
 }
 
 export interface ApiErrorBody {

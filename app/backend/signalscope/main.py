@@ -22,6 +22,7 @@ from signalscope.db.migrate import run_migrations
 from signalscope.seed import seed_demo_users
 from signalscope.services.analysis import AnalysisService
 from signalscope.services.auth import AuthService
+from signalscope.services.aux_models import load_aux_models
 from signalscope.services.detector import build_detector
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s - %(message)s")
@@ -52,28 +53,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     detector = build_detector(settings)
     await run_in_threadpool(detector.load)
     app.state.detector = detector
-    app.state.analysis = AnalysisService(detector, settings)
     logger.info("Detector '%s' ready (model %s)", detector.name, detector.model_version)
 
-    # Standalone-M — load in parallel (independent of E1)
-    try:
-        import sys as _sys
-        from pathlib import Path as _Path
-        _repo_root = str(_Path(__file__).resolve().parents[4])
-        if _repo_root not in _sys.path:
-            _sys.path.insert(0, _repo_root)
-        import importlib as _il
-        _sm = _il.import_module("model.predict_standalone")
-        standalone_container = await run_in_threadpool(_sm.load_model, settings.ml_device)
-        app.state.standalone_model = standalone_container
-        app.state.standalone_predict = _sm.predict
-        app.state.standalone_version = _sm.MODEL_VERSION
-        logger.info("Standalone-M model ready (version %s)", _sm.MODEL_VERSION)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Standalone-M failed to load — dual endpoint will return error: %s", exc)
-        app.state.standalone_model = None
-        app.state.standalone_predict = None
-        app.state.standalone_version = "unavailable"
+    # Secondary detectors (Standalone-M, E2) feed the combined verdict. One that fails to load is
+    # reported per request and left out of the decision rather than blocking startup.
+    aux_models = await run_in_threadpool(load_aux_models, settings) if settings.detector == "ml" else []
+    app.state.analysis = AnalysisService(detector, settings, aux_models)
 
     try:
         yield

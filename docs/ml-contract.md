@@ -124,3 +124,22 @@ DETECTOR=ml     # app calls model/predict.py via MLDetector
 
 The app validates every `predict()` result against this schema; a mismatch fails loudly with a
 clear error message, so contract drift is caught immediately.
+
+## 7. Secondary models and the combined verdict
+
+With `DETECTOR=ml`, the app also loads the secondary models listed in
+`app/backend/signalscope/services/aux_models.py` (`AUX_MODULES`):
+
+| Key | Module | Weights (under `model/model/` or `app/backend/signalscope/ML/model/`) | Override |
+|---|---|---|---|
+| `standalone_m` | `model/predict_standalone.py` | `Standalone_M/best_model.pt` | `SIGNALSCOPE_STANDALONE_MODEL_PATH` |
+| `e2` | `model/predict_e2.py` | `signalscope_E2_modern/last_model.pt` | `SIGNALSCOPE_E2_MODEL_PATH` |
+
+A secondary module needs only `load_model(device)` and `predict(model, image) -> dict` returning at least
+`{"ai_probability": float in [0, 1]}` (plus optional `model_version`). To add another model, add a module
+and one line to `AUX_MODULES`.
+
+`POST /api/v1/analyze/ensemble` runs E1 and every secondary model on the same image. The verdict shown
+to users is **"Likely AI-generated" if any model's P(AI) ≥ `ENSEMBLE_AI_THRESHOLD`** (default `0.25`),
+otherwise "Likely real". A secondary model that fails to load or predict is reported in `models[].error`
+and left out of the decision; E1 is required.

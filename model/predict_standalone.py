@@ -9,8 +9,6 @@ Output: single logit  — sigmoid → prob_ai
 from __future__ import annotations
 
 import logging
-import os
-from pathlib import Path
 from typing import Any
 
 import cv2
@@ -19,20 +17,13 @@ import torch
 from torch import nn
 from PIL import Image
 
+from model._checkpoints import resolve_checkpoint
+
 logger = logging.getLogger("signalscope.ml_standalone")
 
 MODEL_VERSION = "standalone-m-convnext-tiny"
 
-DEFAULT_CHECKPOINT_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "app"
-    / "backend"
-    / "signalscope"
-    / "ML"
-    / "model"
-    / "Standalone_M"
-    / "best_model.pt"
-)
+CHECKPOINT = "Standalone_M/best_model.pt"
 
 IMAGE_SIZE = 224
 _MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
@@ -80,14 +71,7 @@ class ModelContainer:
 
 def load_model(device: str = "cpu") -> ModelContainer:
     """Load Standalone-M weights once at server startup."""
-    model_path_str = os.environ.get("SIGNALSCOPE_STANDALONE_MODEL_PATH")
-    checkpoint_path = Path(model_path_str) if model_path_str else DEFAULT_CHECKPOINT_PATH
-
-    if not checkpoint_path.exists():
-        raise FileNotFoundError(
-            f"Standalone-M checkpoint not found at: {checkpoint_path}. "
-            "Set SIGNALSCOPE_STANDALONE_MODEL_PATH in your environment."
-        )
+    checkpoint_path = resolve_checkpoint(CHECKPOINT, "SIGNALSCOPE_STANDALONE_MODEL_PATH")
 
     target_device = torch.device(device)
     if device == "cuda" and not torch.cuda.is_available():

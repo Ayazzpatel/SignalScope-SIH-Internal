@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../lib/api.ts'
-import type { DualAnalysisResponse } from '../types/api.ts'
+import type { EnsembleAnalysisResponse } from '../types/api.ts'
 
 export interface BatchItem {
   id: string
   file: File
   previewUrl: string
   status: 'queued' | 'analyzing' | 'done' | 'error'
-  result?: DualAnalysisResponse
+  result?: EnsembleAnalysisResponse
   error?: string
 }
 
@@ -54,7 +54,7 @@ export function useBatchAnalysis() {
     })
 
     try {
-      const result = await api.analyzeDual(item.file, controller.signal)
+      const result = await api.analyzeEnsemble(item.file, controller.signal)
       setState((prev) => {
         if (prev.kind !== 'batch') return prev
         const next = prev.items.map((i) =>

@@ -1,0 +1,10 @@
+# Ignore rules for app/backend/Dockerfile, whose build context is the repo root.
+# Send only what the image copies — never model weights (~1 GB), node_modules or local data.
+*
+!app/backend/requirements.txt
+!app/backend/alembic.ini
+!app/backend/signalscope
+!model/*.py
+**/__pycache__
+**/*.pyc
+**/*.pt
