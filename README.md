@@ -2,7 +2,7 @@
 
 SIH 2026 Internal Hackathon · Problem Statement 2
 
-Switch to Developmenr_sujal branch for real working project.
+## Switch to Developmenr_sujal branch for real working project.
 
 SignalScope gives a **likelihood assessment** of whether an image is real or AI-generated, with a heat-map of
 the regions behind the verdict and any provenance metadata the image carries. It never makes accusations —
